@@ -275,6 +275,7 @@ function makeRow(id, meeting, source){
   let startDate = meeting["start_time"];
   if([undefined, null].indexOf(recurrence["date"]) < 0){
     startDate = recurrence["date"];
+    meeting["start_time"] = recurrence["date"].toISOString().split(".")[0] + "Z"
   }
   //console.log(`${meeting['topic']}, recurrence["date"]:${recurrence["date"]}`);
   let participants = "";
