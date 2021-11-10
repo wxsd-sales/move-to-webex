@@ -16,19 +16,17 @@ Move your existing meetings from Zoom to Webex in your Calendar.  This app will 
 
 ### Video Demo
 
-[![ZoomToWebex Video Demo](https://img.youtube.com/vi/ZLetz4AjoXQ/0.jpg)](https://youtu.be/ZLetz4AjoXQ, "ZoomToWebex Video Demo")
+[![ZoomToWebex Video Demo](https://img.youtube.com/vi/iws4osHV42Y/0.jpg)](https://youtu.be/iws4osHV42Y, "ZoomToWebex Video Demo")
 
 ### Walkthrough
 
-1. To use this application as it exists in production, [click here](https://webex-apm-demo.herokuapp.com/).
+1. To use this application as it exists in production, [click here](https://zoomtowebex.wbx.ninja).
 2. Sign in with your Webex account credentials.
-3. Toggle the server switch.<br/>
-<img src="https://wxsd-sales.github.io/APMBot/static/images/walkthrough/demo-switch.png" width="200"><br/>
-4. Check your Webex client. Toggling the switch should have caused the bot to sent you an alert card.<br/>
-5. Add a comment to the card.<br/>
-<img src="https://wxsd-sales.github.io/APMBot/static/images/walkthrough/demo-bot-card.png" width="600"><br/>
-6. Submitting the comment should result in an update on the production page after a few seconds:<br/>
-<img src="https://wxsd-sales.github.io/APMBot/static/images/walkthrough/demo-site.png" width="600"><br/>
+3. Sign in with your Zoom account credentials.
+4. Sign in with your Microsoft Outlook/O365 credentials.
+5. Click Search for Zoom meetings.
+6. Review the found meetings, and select any you wish to transfer.
+7. Click Transfer.
 
 ### Built With
 
@@ -40,7 +38,7 @@ Move your existing meetings from Zoom to Webex in your Calendar.  This app will 
 
 If you simply want to use this application, you only need to follow the Walkthrough.<br/>
 <br/>
-Installation is only needed if you wish to host a version of this bot yourself.<br/>
+Installation is only needed if you wish to host a version of this application yourself. However, most Microsoft & Zoom organizations restrict which applications  their users can access, so you may need to install your own version, or have your org admins grant permission for the corresponding app(s).<br/>
 
 ### Installation
 
