@@ -1,0 +1,154 @@
+{% import json %}
+
+<html>
+  <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+      <link rel="icon" type="image/png" href="static/img/favicon.ico" />
+      <link rel="stylesheet" href="static/css/base.css">
+      <link rel="stylesheet" href="static/css/collab-ui.min.css" />
+      <link rel="stylesheet" href="static/css/momentum-ui.min.css" />
+      <link rel="stylesheet" href="static/css/bootstrap-4.4.1.min.css">
+      <link rel="stylesheet" href="static/css/font-awesome-4.7.0.min.css">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+      <script src="static/js/jquery-3.4.1.min.js"></script>
+      <script src="static/js/bootstrap-4.4.1.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+      <script type="text/javascript">
+        zoomToken = "{{ tokens.get('zoom_token') }}";
+        msftToken = "{{ tokens.get('msft_token') }}";
+
+        webexAvatar = "{{ person.get('avatar') }}";
+        if(webexAvatar == "None"){
+          webexAvatar = "static/img/user.png";
+        }
+        meetingsCount = parseInt("{{ meetings_count }}");
+
+        let searching = false;
+        let pageVersion = null;
+        let meetingTypeTitle = 'Zoom ';
+        
+      </script>
+      {% block scripts %}{% end %}
+      <script src="static/js/main.js"></script>
+
+      <title>{% block title %}Convert Meetings to Webex{% end %}</title>
+      {% block styles %}{% end %}      
+  </head>
+  <body>
+      <div class="myheader">
+        <header class="md-top-bar md-top-bar--dark headerrow" role="navigation">
+          <div class="md-top-bar__container">
+            <div class="md-top-bar__brand">
+              <a class="md-brand" href="/">
+                <div class="md-brand__logo md-brand__logo--pad">
+                  <img src="static/img/webex-logo_128.png"></img>
+                </div>
+                <div id="main-title" class="md-brand__title">{% block header_title %}Zoom to Webex{% end %}</div>
+              </a>
+            </div>
+          </div>
+        </header>
+      </div>
+      <div class="mainrow">
+        <div class="step"><h3>Step X</h3><img src="static/img/check-mark.png" class="alert-image left-spacer" /></div>
+        <div class="alert alert-success default-cursor" role="alert">
+          <img src="static/img/webex-logo_128.png" class="alert-image" />
+          Successfully Signed in to Webex!
+          <img id="webexAvatar" src="" class="alert-image avatar-logo left-spacer right-float-img" />
+        </div>
+        {% block zoom_step %}
+        <div class="step"><h3>Step X</h3><img id="zoomNextStepImg" src="static/img/next-step.png" class="alert-image left-spacer" /><img id="zoomCompleteImg" src="static/img/check-mark.png" class="alert-image left-spacer" style="display:none"/></div>
+        <div id="zoomSignInDiv" class="alert alert-primary enable-cursor" role="alert">
+          <button type="button" class="btn btn-primary">Sign In</button> to Zoom.
+          <img id="zoomRightArrowImg" src="static/img/right-arrow.png" class="alert-image left-spacer right-float-img" style="display:none" />
+        </div>
+        {% end %}
+        {% block msft_step %}
+        <div class="step"><h3>Step X</h3><img id="msftNextStepImg" src="static/img/next-step.png" class="alert-image left-spacer" style="display:none" /><img id="msftCompleteImg" src="static/img/check-mark.png" class="alert-image left-spacer" style="display:none"/></div>
+        <div id="msftSignInDiv" class="alert alert-secondary disable-cursor" role="alert">
+          <button id="msftSignInButton" type="button" class="btn btn-primary">Sign In</button> to Microsoft Outlook.
+          <img id="msftRightArrowImg" src="static/img/right-arrow.png" class="alert-image left-spacer right-float-img" style="display:none" />
+        </div>
+        {% end %}
+        <div class="step"><h3>Step X</h3><img id="searchNextStepImg" src="static/img/next-step.png" class="alert-image left-spacer" style="display:none"/><img id="searchCompleteImg" src="static/img/check-mark.png" class="alert-image left-spacer" style="display:none"/></div>
+        <div id="searchMeetingsDiv" class="alert alert-secondary disable-cursor high-div" role="alert">
+          <div id="searchInputDiv">
+            <div class="search-spinner spinner-border blue-font" style="display:none;"></div>
+            <button id="searchButton" type="button" class="btn btn-primary">Search</button>
+            {% block search_block %}
+            <p id="searchDescription" class="div-description search-custom"> for my Zoom meetings.</p>
+            {% end %}
+          </div>
+          <p id="searchError" class=search-error style="display:none;">You must enter a search term.</p>
+          <img src="static/img/right-arrow.png" class="alert-image left-spacer right-float-img" style="display:none" />
+        </div>
+        <div class="step"><h3>Step X</h3><img id="transferNextStepImg" src="static/img/next-step.png" class="alert-image left-spacer" style="display:none"/><img id="transferCompleteImg" src="static/img/check-mark.png" class="alert-image left-spacer" style="display:none"/></div>
+        <div id="transferMeetingsDiv" class="alert alert-secondary disable-cursor" role="alert">
+        </div>
+      </div>
+      <div id="searchResults" class="alert alert-primary default-cursor search-div" style="display:none">
+      </div>
+      <div id="overlay">
+        <div class="information">
+          <div id="close-form"><i class="icon icon-cancel_16"></i></div>
+          <div id="form-content">
+            <form id="overlay-form">
+              <label>MeetingId:</label>
+              <label id="setMeetingId">{MeetingId}</label>
+              <div class="form-group">
+                <label for="setTopic">Topic</label>
+                <input type="text" class="form-control" id="setTopic" placeholder="{Topic}">
+              </div>
+              <div class="form-group">
+                <label for="setStartTime">Start Time</label>
+                <input type="text" class="form-control" id="setStartTime" placeholder="{StartTime}">
+              </div>
+              <div class="form-group">
+                <label for="durationSelect">Duration</label>
+                <div class="input-group mb-3">
+                  <select class="custom-select" id="durationSelect">
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="45">45</option>
+                    <option value="60">60</option>
+                    <option value="75">75</option>
+                    <option value="90">90</option>
+                    <option value="105">105</option>
+                    <option value="120">120</option>
+                    <option value="135">135</option>
+                    <option value="150">150</option>
+                    <option value="165">165</option>
+                    <option value="180">180</option>
+                    <option value="195">195</option>
+                    <option value="210">210</option>
+                    <option value="225">225</option>
+                    <option value="240">240</option>
+                    <option value="255">255</option>
+                    <option value="270">270</option>
+                    <option value="295">295</option>
+                    <option value="300">300</option>
+                  </select>
+                  <div class="input-group-append">
+                    <label class="input-group-text" for="durationSelect">Minutes</label>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="setParticipants">Participants</label>
+                <input type="text" class="form-control" id="setParticipants" placeholder="No Attendees Found">
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </body>
+    <script type="text/javascript">
+        //Set the step numbers correctly
+        $('.step').each(function(i){
+            $($(this).find('h3')).text(`Step ${i+1}`);
+        })
+    </script>
+</html>

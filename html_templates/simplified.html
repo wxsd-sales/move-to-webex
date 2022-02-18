@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Convert Meetings to Webex{% end %}
+
+{% block header_title %}Move to Webex{% end %}
+
+{% block zoom_step %}{% end %}
+
+{% block search_text %}for my meetings {% end %}
+
+{% block search_block %}
+<p id="searchDescription" class="div-description search-custom" style="display:none;"> for my meetings.</p>
+<input type="text" class="form-control search-custom" id="searchInput" placeholder="for my meetings that contain..."/>
+{% end %}
+
+{% block scripts %}
+<script type="text/javascript">
+    pageVersion = 'simplified';
+    meetingTypeTitle = '';
+</script>
+{% end %}

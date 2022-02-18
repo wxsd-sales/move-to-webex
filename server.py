@@ -28,6 +28,26 @@ from uuid import uuid4
 
 define("debug", default=False, help="run in debug mode")
 
+class SimplifiedHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @tornado.gen.coroutine
+    def get(self):
+        try:
+            print("SimplifiedHandler GET")
+            person = self.get_current_user()
+            if not person:
+                self.redirect('/webex-oauth?state=simplified')
+            else:
+                person = json.loads(person)
+                print(person)
+                meetings_count = None
+                msft_user = self.application.settings['db'].get_user(person['id'], "msft")
+                if msft_user != None:
+                    msft_user = True
+                self.render("simplified.html", person=person, tokens={"msft_token":msft_user}, meetings_count=meetings_count)
+        except Exception as e:
+            traceback.print_exc()
+
 
 class MainHandler(BaseHandler):
     @tornado.web.asynchronous
@@ -48,7 +68,8 @@ class MainHandler(BaseHandler):
                 msft_user = self.application.settings['db'].get_user(person['id'], "msft")
                 if msft_user != None:
                     msft_user = True
-                self.render("main.html", person=person, zoom_token=zoom_user, msft_token=msft_user, meetings_count=meetings_count)
+                tokens = {"zoom_token":zoom_user, "msft_token":msft_user}
+                self.render("main.html", person=person, tokens=tokens, meetings_count=meetings_count)
         except Exception as e:
             traceback.print_exc()
 
@@ -60,6 +81,8 @@ class CommandHandler(BaseHandler):
         jbody = json.loads(self.request.body)
         print("CommandHandler request.body:{0}".format(jbody))
         command = jbody.get('command')
+        version = jbody.get('version')
+        search_term = jbody.get('search_term')
         result_object = {"reason":None, "code":200, "data":None}
         if not person:
             result_object['reason'] = 'Not Authenticated with Webex.'
@@ -68,7 +91,7 @@ class CommandHandler(BaseHandler):
             person = json.loads(person)
             zoom_user = self.application.settings['db'].get_user(person['id'], "zoom")
             msft_user = self.application.settings['db'].get_user(person['id'], "msft")
-            if zoom_user == None:
+            if version in [None] and zoom_user == None:
                 result_object['reason'] = 'Not Authenticated with Zoom.'
                 result_object['code'] = 403
                 result_object['data'] = "zoom"
@@ -81,64 +104,65 @@ class CommandHandler(BaseHandler):
                 result_object['code'] = 400
             else:
                 if command == 'search':
-                    result_object = yield self.search_command(result_object, zoom_user, msft_user)
+                    result_object = yield self.search_command(result_object, zoom_user, msft_user, version, search_term)
                     ####
-                    print('pmi(s) from msft calendar:')
-                    leftover_meetings = []
-                    for msft_pmi in result_object['data']['pmi']['meetings']:
-                        print(msft_pmi)
-                        msft_start_time = parser.parse(msft_pmi['start_msft']['dateTime'])
-                        if(msft_start_time.tzname() == None):#this should always be True unless MSFT changes their datetime string format
-                            msft_start_time = pytz.timezone('UTC').localize(msft_start_time)
-                        print(msft_start_time)
-                        found_meeting = False
-                        for zoom_meeting_key in result_object['data']:
-                            zoom_meeting = result_object['data'][zoom_meeting_key]
-                            if zoom_meeting.get('pmi') != None and not zoom_meeting.get('msft_match'):
-                                print(zoom_meeting)
-                                zoom_start_time = parser.parse(zoom_meeting['start_time'])
-                                if(zoom_start_time.tzname() == None):#this should always be False unless Zoom changes their datetime string format
-                                    zoom_start_time = pytz.timezone('UTC').localize(zoom_start_time)
-                                print(zoom_start_time)
-                                found_meeting = zoom_start_time == msft_start_time
-                                temp_msft_start_time = None
-                                temp_zoom_start_time = None
-                                if not found_meeting:
-                                    try:
-                                        temp_msft_start_time = msft_start_time.replace(tzinfo=pytz.timezone(msft_pmi['start_msft']['timeZone']))
-                                        found_meeting = zoom_start_time == temp_msft_start_time
-                                    except Exception as e:
-                                        pass
+                    if version == None:
+                        print('pmi(s) from msft calendar:')
+                        leftover_meetings = []
+                        for msft_pmi in result_object['data']['pmi']['meetings']:
+                            print(msft_pmi)
+                            msft_start_time = parser.parse(msft_pmi['start_msft']['dateTime'])
+                            if(msft_start_time.tzname() == None):#this should always be True unless MSFT changes their datetime string format
+                                msft_start_time = pytz.timezone('UTC').localize(msft_start_time)
+                            print(msft_start_time)
+                            found_meeting = False
+                            for zoom_meeting_key in result_object['data']:
+                                zoom_meeting = result_object['data'][zoom_meeting_key]
+                                if zoom_meeting.get('pmi') != None and not zoom_meeting.get('msft_match'):
+                                    print(zoom_meeting)
+                                    zoom_start_time = parser.parse(zoom_meeting['start_time'])
+                                    if(zoom_start_time.tzname() == None):#this should always be False unless Zoom changes their datetime string format
+                                        zoom_start_time = pytz.timezone('UTC').localize(zoom_start_time)
+                                    print(zoom_start_time)
+                                    found_meeting = zoom_start_time == msft_start_time
+                                    temp_msft_start_time = None
+                                    temp_zoom_start_time = None
                                     if not found_meeting:
                                         try:
-                                            temp_zoom_start_time = zoom_start_time.replace(tzinfo=pytz.timezone(zoom_meeting['timezone']))
-                                            found_meeting = temp_zoom_start_time == msft_start_time
+                                            temp_msft_start_time = msft_start_time.replace(tzinfo=pytz.timezone(msft_pmi['start_msft']['timeZone']))
+                                            found_meeting = zoom_start_time == temp_msft_start_time
                                         except Exception as e:
                                             pass
-                                if found_meeting:
-                                    result_object['data'][zoom_meeting_key].update(msft_pmi)
-                                    result_object['data'][zoom_meeting_key]['msft_match'] = True
-                                    break
-                        if not found_meeting:
-                            start_time = msft_pmi["start_msft"]["dateTime"].rsplit(".",1)[0]
-                            meeting_start = datetime.fromisoformat(start_time)
-                            meeting_end = datetime.fromisoformat(msft_pmi["end_msft"]["dateTime"].rsplit(".",1)[0])
-                            duration = int((meeting_end-meeting_start).total_seconds()/60)
-                            msft_pmi["start_time"] = start_time + "Z"
-                            msft_pmi["duration"] = duration
-                            msft_pmi["topic"] = "/".join(msft_pmi["subjects"])
-                            result = self.application.settings['db'].meetings.find_one({"person_id": person['id'], "source_meeting_id":msft_pmi["msft_id"]})
-                            if result != None:
-                                msft_pmi.update({"webex_meeting_id":result['webex_meeting_id']})
-                            leftover_meetings.append(msft_pmi)
-                    result_object['data']['pmi']['meetings'] = leftover_meetings
+                                        if not found_meeting:
+                                            try:
+                                                temp_zoom_start_time = zoom_start_time.replace(tzinfo=pytz.timezone(zoom_meeting['timezone']))
+                                                found_meeting = temp_zoom_start_time == msft_start_time
+                                            except Exception as e:
+                                                pass
+                                    if found_meeting:
+                                        result_object['data'][zoom_meeting_key].update(msft_pmi)
+                                        result_object['data'][zoom_meeting_key]['msft_match'] = True
+                                        break
+                            if not found_meeting:
+                                start_time = msft_pmi["start_msft"]["dateTime"].rsplit(".",1)[0]
+                                meeting_start = datetime.fromisoformat(start_time)
+                                meeting_end = datetime.fromisoformat(msft_pmi["end_msft"]["dateTime"].rsplit(".",1)[0])
+                                duration = int((meeting_end-meeting_start).total_seconds()/60)
+                                msft_pmi["start_time"] = start_time + "Z"
+                                msft_pmi["duration"] = duration
+                                msft_pmi["topic"] = "/".join(msft_pmi["subjects"])
+                                result = self.application.settings['db'].meetings.find_one({"person_id": person['id'], "source_meeting_id":msft_pmi["msft_id"]})
+                                if result != None:
+                                    msft_pmi.update({"webex_meeting_id":result['webex_meeting_id']})
+                                leftover_meetings.append(msft_pmi)
+                        result_object['data']['pmi']['meetings'] = leftover_meetings
 
                     for meeting_id in result_object['data']:
                         if meeting_id == "pmi":
                             continue
                         meeting = result_object['data'][meeting_id]
                         addTopic = ""
-                        if meeting.get('subjects'):
+                        if meeting.get('subjects') and meeting.get('topic'):
                             for subject in meeting['subjects']:
                                 if subject.lower() != meeting['topic'].lower():
                                     print(subject)
@@ -190,11 +214,12 @@ class CommandHandler(BaseHandler):
             print('search_zoom_meetings, found_meeting_ids:')
             print(found_meeting_ids)
             print("*********************")
+        print("zoom_user_info:{0}".format(zoom_user_info))
         raise tornado.gen.Return((found_meeting_ids, zoom_user_info, result_object))
 
 
     @tornado.gen.coroutine
-    def search_msft_calendar(self, msft_user, result_object, found_meeting_ids, zoom_user_info):
+    def search_msft_calendar(self, msft_user, result_object, found_meeting_ids, search_term, search_pmi, version):
         resp, msft_user = yield msftGET('/me', msft_user)
         if msft_user == None:
             result_object['reason'] = 'Not Authenticated with Microsoft.'
@@ -206,30 +231,47 @@ class CommandHandler(BaseHandler):
             self.application.settings['db'].update_user(msft_user['person_id'], {"email":user_email})
             counter = 0
             pmi_meetings = []
+            #TODO: make this more precise with user's timezone from browser?
+            since_day = (datetime.now()- timedelta(days=1)).strftime('%Y-%m-%dT00:00')
+            next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%dT00:00')
             #$filter=sender/emailAddress/address+eq+'{0}'&$select=subject,body,toRecipients
             #get_events_url = "/me/calendar/events$filter=organizer/emailAddress/address+eq+'{0}'&$select=attendees,body,location,start,end,subject,hasAttachments,bodyPreview,id,transactionId,originalStartTimeZone,originalEndTimeZone,recurrence"
             #Additional $select parameters that may be worthwhile, are:
             #hasAttachments, bodyPreview, transactionId
-            get_events_url = "https://graph.microsoft.com/v1.0/me/calendar/events?$select=attendees,body,location,start,end,subject,originalStartTimeZone,originalEndTimeZone,recurrence,isOrganizer&"#$filter=isOrganizer+eq+true"
-            while get_events_url != None and counter < 20:
+            #get_events_url = "https://graph.microsoft.com/v1.0/me/calendar/events?$select=seriesMasterId,type,occurrenceId,attendees,body,location,start,end,subject,originalStartTimeZone,originalEndTimeZone,recurrence,isOrganizer&$filter=isOrganizer+eq+true"
+            get_events_url = "https://graph.microsoft.com/v1.0/me/calendar/events?$select=type,attendees,body,location,start,end,subject,originalStartTimeZone,recurrence,isOrganizer"
+            get_events_url += "&$filter=(isorganizer+eq+true)+and+((start/dateTime+ge+'{0}')+or+(type+eq+'seriesMaster'))&$orderby=start/dateTime".format(since_day)
+            while get_events_url != None and counter < 20: #If meetings are missing, we can try increasing this counter
                 print('get_events_url:{0}'.format(get_events_url))
                 resp, msft_user = yield msftGET(get_events_url, msft_user)
+                print("events found in this iteration:{0}".format(len(resp.get('value'))))
+                counter = 1
                 for value in resp.get('value'):
+                    print(counter)
+                    print("Subject:{0}".format(value['subject']))
+                    print(value)
                     attendees = []
-                    splits = None
-                    if zoom_user_info['base_url'] in value['location']['displayName']:
-                        print('found zoom meeting in location.')
-                        splits =  value['location']['displayName'].split(zoom_user_info['base_url'])
-                    elif zoom_user_info['base_url'] in value['body']['content']:
-                        print('found zoom meeting in content body.')
-                        splits = value['body']['content'].split(zoom_user_info['base_url'])
-                    if splits != None:
+                    search_found_splits = None
+                    if value.get('recurrence') and value['recurrence'].get('range'):
+                        if value['recurrence']['range'].get('type') == 'endDate':
+                            if value['recurrence']['range'].get('endDate') < next_day:
+                                continue
+                    if search_term in value['location']['displayName']:
+                        print('found {0} meeting in content location.'.format(search_term))
+                        search_found_splits =  value['location']['displayName'].split(search_term)
+                    elif search_term in value['body']['content']:
+                        print('found {0} meeting in content body.'.format(search_term))
+                        search_found_splits = value['body']['content'].split(search_term)
+                    if search_found_splits != None:
                         for attendee in value['attendees']:
                             attendees.append(attendee['emailAddress']['address'])
-                        print("Subject:{0}".format(value['subject']))
-                        print("Attendees:")
-                        print(value['attendees'])
+                        start_msft = datetime.fromisoformat(value['start']['dateTime'][:23])
+                        end_msft = datetime.fromisoformat(value['end']['dateTime'][:23])
+                        duration_msft = int((end_msft - start_msft).seconds/60)
 
+                        #TODO: for meeting series, I'm trying to figure out next occurrence of complex recurring meetings
+                        # based on recurrence object in main.js.  I could just get the actual next occurrence instead with graph api
+                        # ... not to mention some of my recurrence/next occurence calculations are wrong in main.js (like last friday of every month)
                         my_object = {"msft_id": value['id'],
                                      "subjects":[value['subject']],
                                      "attendees": attendees,
@@ -237,15 +279,24 @@ class CommandHandler(BaseHandler):
                                      "end_msft": value['end'],
                                      "recurrence_msft": value['recurrence'],
                                      "start_tz_msft":value['originalStartTimeZone'],
-                                     "end_tz_msft":value['originalEndTimeZone']}
+                                     "duration_msft":duration_msft}
+
+                        #This overwrites the zoom start_time with the one from mircosoft events.
+                        #Reason is, zoom tends to provide last occurence in a series as the start_time - not helpful.
+                        if my_object["start_msft"] not in [None,""] and my_object["start_msft"]["dateTime"]:
+                            my_object["start_time"] = my_object["start_msft"]["dateTime"].rsplit(".",1)[0] + "Z"
+
                         temp_ids = []
-                        for split in splits[1:]:#start at index 1, because 0 will never be a meetingId
-                            parts = re.split(r'(?:[@~+=<>?&()])', split, 1)#this splits at the first special character @~+= etc.
-                            id_part = parts[0].strip('"\' ')
-                            if id_part == zoom_user_info['pmi']:
-                                pmi_meetings.append(my_object)
-                            elif id_part not in temp_ids:
-                                temp_ids.append(id_part)
+                        if version == "simplified":
+                            temp_ids.append(value['id'])
+                        else:
+                            for split in search_found_splits[1:]:#start at index 1, because 0 will never be a meetingId
+                                parts = re.split(r'(?:[@~+=<>?&()])', split, 1)#this splits at the first special character @~+= etc.
+                                id_part = parts[0].strip('"\' ')
+                                if id_part == search_pmi:
+                                    pmi_meetings.append(my_object)
+                                elif id_part not in temp_ids:
+                                    temp_ids.append(id_part)
                         for temp_id in temp_ids:
                             if temp_id in found_meeting_ids:
                                 my_object['subjects'] = list(set(found_meeting_ids[temp_id].get('subjects', [])).union([value['subject']]))
@@ -259,16 +310,25 @@ class CommandHandler(BaseHandler):
 
 
     @tornado.gen.coroutine
-    def search_command(self, result_object, zoom_user, msft_user):
-        found_meeting_ids, zoom_user_info, result_object = yield self.search_zoom_meetings(zoom_user, result_object)
-        if found_meeting_ids != {}:
-            found_meeting_ids, pmi_meetings, result_object = yield self.search_msft_calendar(msft_user, result_object, found_meeting_ids, zoom_user_info)
+    def search_command(self, result_object, zoom_user, msft_user, version, search_term):
+        print('search_command version:{0}'.format(version))
+        #search for webexavengers.zoom.us
+        found_meeting_ids = {}
+        search_pmi = None
+        if version in [None]:
+            found_meeting_ids, zoom_user_info, result_object = yield self.search_zoom_meetings(zoom_user, result_object)
+            search_term = zoom_user_info['base_url']
+            search_pmi = zoom_user_info['pmi']
+        if found_meeting_ids != {} or version in ['simplified']:
+            found_meeting_ids, pmi_meetings, result_object = yield self.search_msft_calendar(msft_user, result_object, found_meeting_ids, search_term, search_pmi, version)
             if result_object['code'] == 200:
-                print("found_meeting_ids:{0}".format(found_meeting_ids))
-                print("pmi_meetings:{0}".format(pmi_meetings))
-                found_meeting_ids.update({'pmi':{'id':zoom_user_info['pmi'], 'meetings':pmi_meetings}})
-                print('final:')
-                print(found_meeting_ids)
+                #print("found_meeting_ids:{0}".format(found_meeting_ids))
+                print("num found_meeting_ids:{0}".format(len(found_meeting_ids)))
+                #print("pmi_meetings:{0}".format(pmi_meetings))
+                print("num pmi_meetings:{0}".format(len(pmi_meetings)))
+                found_meeting_ids.update({'pmi':{'id':search_pmi, 'meetings':pmi_meetings}})
+                #print('final:')
+                #print(json.dumps(found_meeting_ids))
                 result_object['data'] = found_meeting_ids
         raise tornado.gen.Return(result_object)
 
@@ -284,7 +344,7 @@ class CommandHandler(BaseHandler):
             else:
                 meeting = meetings[meeting_id]
                 print("meeting_id:{0}".format(meeting_id))
-                topic = meeting['topic']
+                topic = meeting.get('topic', meeting.get('subjects', [None])[0] )
                 zoom_index = topic.lower().find('zoom')
                 if zoom_index >= 0:
                     topic = topic[:zoom_index] + "Webex" + topic[zoom_index+4:]
@@ -295,7 +355,10 @@ class CommandHandler(BaseHandler):
                     err_result = {'error_reason': 'Invalid StartTime', 'code':400}
                     return_data.update({meeting_id:err_result})
                 if start_time != None:
-                    end_time = start_time + timedelta(minutes=meeting['duration'])
+                    if meeting.get('duration'):
+                        end_time = start_time + timedelta(minutes=meeting['duration'])
+                    else:
+                        end_time = start_time + timedelta(minutes=meeting['duration_msft'])
                     api_data = {"title":topic,
                                 "start":start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
                                 "end":end_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
@@ -406,6 +469,8 @@ def main():
         parse_command_line()
         app = tornado.web.Application([
                 (r"/", MainHandler),
+                (r"/simplified", SimplifiedHandler),
+
                 (r"/command", CommandHandler),
                 (r"/azure", AzureOAuthHandler),
                 (r"/webex-oauth", WebexOAuthHandler),

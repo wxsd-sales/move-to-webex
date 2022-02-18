@@ -5,6 +5,10 @@ html {
 body {
 }
 
+p {
+  margin-bottom: 0px;
+}
+
 .main-height {
   min-height: 800px;
 }
@@ -86,10 +90,6 @@ button:disabled {
   width: max-content;
 }
 
-.search-spinner {
-  position: absolute;
-}
-
 .transfer-spinner {
   
 }
@@ -102,10 +102,7 @@ button:disabled {
   min-height: auto;
 }
 
-.div-description {
-  font-size: 1rem;
-  display: inline;
-}
+
 
 .meetings-table {
   background-color:white;
@@ -123,11 +120,8 @@ button:disabled {
   overflow-x: scroll;
 }
 
-.search-div {
-  width:max-content;
-  margin:auto;
-  min-width: 355px;
-  max-width: 900px;
+.step {
+  display: inline-flex;
 }
 
 #overlay {
@@ -200,6 +194,37 @@ button:disabled {
 
 .avatar-logo {
   border-radius: 50%;
+}
+
+.div-description {
+  font-size: 1rem;
+  margin-top: 5px;
+  display: inline;
+}
+
+.search-custom {
+  margin-left: 5px;
+  margin-bottom: 0px;
+}
+
+.search-div {
+  width:max-content;
+  margin:auto;
+  min-width: 355px;
+  max-width: 900px;
+}
+
+.search-error {
+  margin-bottom: 0px;
+  color:red;
+}
+
+.search-spinner {
+  position: absolute;
+}
+
+#searchInputDiv {
+  display:flex;
 }
 
 /* On small screens, set height to 'auto' for the grid */

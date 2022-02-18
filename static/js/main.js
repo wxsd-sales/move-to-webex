@@ -58,9 +58,7 @@ function buildTable(key, columns, tbody){
     tr.append($('<th scope="col">').text(column));
   }
 
-  table.append($('<thead>').append(tr),
-               tbody
-              );
+  table.append($('<thead>').append(tr), tbody);
   return table;
 }
 
@@ -277,24 +275,33 @@ function makeRow(id, meeting, source){
     startDate = recurrence["date"];
     meeting["start_time"] = recurrence["date"].toISOString().split(".")[0] + "Z"
   }
-  //console.log(`${meeting['topic']}, recurrence["date"]:${recurrence["date"]}`);
+
   let participants = "";
   if(meeting.hasOwnProperty('attendees')){
     participants = meeting['attendees'];
   }
 
   let row = $('<tr id="row_'+cell_id+'">');
+  row.append($('<th id="checkbox_html_'+cell_id+'"scope="row">').html(checkbox['html']))
+  if(pageVersion == null){
+    row.append($('<td>').text(id));
+  }
+  let subject = meeting['topic'];
+  if(subject == undefined){
+    subject = meeting['subjects'][0];
+  }
 
-  row.append($('<th id="checkbox_html_'+cell_id+'"scope="row">').html(checkbox['html']),
-             $('<td>').text(id),
-             $('<td id="topic_'+cell_id+'" class="scroll-cell">').text(meeting['topic']),
+  let duration = meeting['duration'];
+  if(duration == undefined){
+    duration = meeting['duration_msft'];
+  }
+  row.append($('<td id="topic_'+cell_id+'" class="scroll-cell">').text(subject),
              $('<td id="webex_id_'+cell_id+'">').text(checkbox['webexId']),
              setDisplayDate($('<td id="start_time">'), startDate),
-             $('<td id="duration_'+cell_id+'">').text(meeting['duration']),
+             $('<td id="duration_'+cell_id+'">').text(duration),
              $('<td>').text(recurrence["string"]),
              $('<td id="attendees_'+cell_id+'" class="scroll-cell">').text(participants),
-           )
-
+           );
   return row;
 }
 
@@ -310,16 +317,20 @@ function displayData(){
 
   let tbody = buildTBody(meetingData);
 
-  let columns = ["Zoom MeetingId", "Subject", "Webex MeetingId", "StartTime", "Duration", "Recurrence", "Participants"];
+  let columns = ["Subject", "Webex MeetingId", "StartTime", "Duration", "Recurrence", "Participants"];
+  if(pageVersion == null){
+    columns.splice(0, 0, "Zoom MeetingId")// .splice(insertAtIndex, deleteXItems (0), Value)
+  }
+  
   let table = buildTable('main', columns, tbody);
 
-  let mainLabel = $('<label>').text("Zoom Meetings:");
+  let mainLabel = $('<label>').text(`${meetingTypeTitle}Meetings:`);
   $('#searchResults').append(
     mainLabel,
     $('<div class="meetings-table">').append(table)
   )
   console.log(meetingDataPMI);
-  if(Object.keys(meetingDataPMI).length > 0){
+  if(meetingDataPMI.hasOwnProperty('meetings') && meetingDataPMI['meetings'].length > 0){
     let pmiTBody = buildPMITBody(meetingDataPMI);
     let pmiColumns = ["PMI", "Subject", "Webex MeetingId", "StartTime", "Duration", "Recurrence", "Participants"];
     let pmiTable = buildTable('pmi', pmiColumns, pmiTBody);
@@ -330,7 +341,7 @@ function displayData(){
     );
   }
   $('#transferNextStepImg').fadeIn();
-  addTransferButton('#searchResults', ' my selected Zoom meetings to Webex.');
+  addTransferButton('#searchResults', ` my selected ${meetingTypeTitle}meetings to Webex.`);
   //$('#transferNextStepImg').fadeOut(500, fadeInTransferCompleteImg);
 }
 
@@ -400,20 +411,95 @@ function setDivSuccess(selector){
   $(selector).addClass('default-cursor');
 }
 
-function setDivReady(selector){
+function setDivReady(selector, cursor){
   $(selector).removeClass('alert-secondary');
   $(selector).addClass('alert-primary');
   $(selector).removeClass('disable-cursor');
-  $(selector).addClass('enable-cursor');
+  if(cursor !== false){
+    $(selector).addClass('enable-cursor');
+  }
+}
+
+function searchFunction(){
+  let searchTerm = null;
+  if(pageVersion == "simplified"){
+    $('#searchInput').hide();
+    searchTerm = $('#searchInput').val();
+  }
+  if(!searching){
+    searching = true;
+    $('#searchButton').fadeOut();
+    $('#searchDescription').fadeOut();
+    $('.search-spinner').fadeIn();
+    data = {"command":"search", "version":pageVersion, "search_term":searchTerm};
+    $.post('/command', JSON.stringify(data), function(resp){
+      console.log('/command search response:');
+      let jresp = JSON.parse(resp);
+      if(jresp['code'] == 200){
+        let meetingIds = Object.keys(jresp['data']);
+        let numMeetings = meetingIds.length;
+        var index = meetingIds.indexOf('pmi');
+        if (index !== -1) {
+          numMeetings -= 1
+          if(jresp['data']['pmi'].hasOwnProperty('meetings')){
+            numMeetings += jresp['data']['pmi']['meetings'].length;
+          }
+        }
+        $('#searchDescription').html("Found " + numMeetings +` ${meetingTypeTitle}meetings.`);
+        $('.search-spinner').fadeOut(500, fadeInSearchDescription);
+        $('#searchNextStepImg').fadeOut(500, fadeInSearchSuccessImg);
+        setDivSuccess('#searchMeetingsDiv');
+        meetingData = jresp['data'];
+        displayData();
+      } else {
+        console.log(jresp);
+        if(jresp["code"] == 401){
+          window.location = '/webex-oauth';
+        }
+      }
+    })
+  }
+}
+
+function msftConfig(){
+  if(msftToken != "None"){
+    $('#searchNextStepImg').show();
+    $('#searchButton').prop('disabled', false);
+    if(pageVersion == 'simplified'){
+      setDivReady('#searchMeetingsDiv', false);
+      $('#searchButton').on('click', function(){
+        let searchInput = $('#searchInput').val();
+        if(searchInput.length == 0){
+          $("#searchError").show();
+        } else {
+          $("#searchError").hide();
+          searchFunction();
+        }
+      });
+    } else {
+      setDivReady('#searchMeetingsDiv');
+      $('#searchMeetingsDiv').on('click', searchFunction);
+    }
+    
+  } else {
+    setDivReady('#msftSignInDiv');
+    $('#msftNextStepImg').show();
+
+    $('#msftSignInButton').prop('disabled', false);
+    $('#msftSignInDiv').on('click', function(){
+      let winLoc = '/azure';
+      if(pageVersion != null){
+        winLoc = `/azure?state=${pageVersion}`
+      }
+      window.location = winLoc;
+    })
+  }
 }
 
 
 $('document').ready(function() {
-
-  let searching = false;
   $('#webexAvatar').attr('src', webexAvatar);
-
-  addTransferButton('#transferMeetingsDiv', ' my Zoom meetings to Webex.');
+  addTransferButton('#transferMeetingsDiv', ` my ${meetingTypeTitle}meetings to Webex.`);
 
   $('#searchButton').prop('disabled', true);
   $('#transferButton').prop('disabled', true);
@@ -435,52 +521,17 @@ $('document').ready(function() {
     $('#zoomCompleteImg').show();
     $('#zoomNextStepImg').hide();
 
-    if(msftToken != "None"){
-      setDivReady('#searchMeetingsDiv');
-      $('#searchNextStepImg').show();
-      $('#searchButton').prop('disabled', false);
-
-      $('#searchMeetingsDiv').on('click', function(){
-        if(!searching){
-          searching = true;
-          $('#searchButton').fadeOut();
-          $('#searchDescription').fadeOut();
-          $('.search-spinner').fadeIn();
-          data = {"command":"search"};
-          $.post('/command', JSON.stringify(data), function(resp){
-            console.log('/command search response:');
-            let jresp = JSON.parse(resp);
-            if(jresp['code'] == 200){
-              $('#searchDescription').html("Found " + Object.keys(jresp['data']).length +" Zoom meetings.");
-              $('.search-spinner').fadeOut(500, fadeInSearchDescription);
-              $('#searchNextStepImg').fadeOut(500, fadeInSearchSuccessImg);
-              setDivSuccess('#searchMeetingsDiv');
-              meetingData = jresp['data'];
-              displayData();
-            } else {
-              console.log(jresp);
-              if(jresp["code"] == 401){
-                window.location = '/webex-oauth';
-              }
-            }
-          })
-        }
-      })
-    } else {
-      setDivReady('#msftSignInDiv');
-      $('#msftNextStepImg').show();
-
-      $('#msftSignInButton').prop('disabled', false);
-      $('#msftSignInDiv').on('click', function(){
-        window.location = '/azure';
-      })
-    }
+    msftConfig();
 
   } else { // else, user is not signed into Zoom.
 
-    $('#zoomSignInDiv').on('click', function(){
-      window.location = '/zoom-oauth';
-    })
+    if(pageVersion == null){
+      $('#zoomSignInDiv').on('click', function(){
+        window.location = '/zoom-oauth';
+      })
+    } else if(pageVersion == 'simplified'){
+      msftConfig();
+    }
 
   }
 
@@ -495,7 +546,7 @@ $('document').ready(function() {
   })
 
   if(!isNaN(meetingsCount)){
-    $("#zoomMeetingsDescription").text(" my " + meetingsCount + " Zoom meetings to Webex.");
+    $("#zoomMeetingsDescription").text(" my " + meetingsCount + ` ${meetingTypeTitle}meetings to Webex.`);
   }
 
 

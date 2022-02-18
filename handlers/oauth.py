@@ -53,11 +53,16 @@ class WebexOAuthHandler(BaseHandler):
                 if self.get_argument("code", None):
                     code = self.get_argument("code")
                     yield self.get_tokens(code)
-                    self.redirect("/")
+                    state = self.get_argument("state","")
+                    if state != "":
+                        self.redirect(state)
+                    else:
+                        self.redirect("/")
                     return
                 else:
-                    authorize_url = 'https://webexapis.com/v1/authorize?client_id={0}&response_type=code&redirect_uri={1}&scope={2}'
-                    authorize_url = authorize_url.format(Settings.webex_client_id, urllib.parse.quote_plus(Settings.webex_redirect_uri), Settings.webex_scopes)
+                    state = self.get_argument("state","")
+                    authorize_url = 'https://webexapis.com/v1/authorize?client_id={0}&response_type=code&redirect_uri={1}&scope={2}&state={3}'
+                    authorize_url = authorize_url.format(Settings.webex_client_id, urllib.parse.quote_plus(Settings.webex_redirect_uri), Settings.webex_scopes, state)
                     print("WebexOAuthHandler.get authorize_url:{0}".format(authorize_url))
                     self.redirect(authorize_url)
                     return
@@ -120,10 +125,15 @@ class ZoomOAuthHandler(BaseHandler):
                     if self.get_argument("code", None):
                         code = self.get_argument("code")
                         yield self.get_tokens(code)
-                        self.redirect("/")
+                        state = self.get_argument("state","")
+                        if state != "":
+                            self.redirect(state)
+                        else:
+                            self.redirect("/")
                         return
                     else:
-                        authorize_url = 'https://zoom.us/oauth/authorize?response_type=code&client_id={0}&redirect_uri={1}'.format(Settings.zoom_client_id, urllib.parse.quote_plus(Settings.zoom_redirect_uri))
+                        state = self.get_argument("state","")
+                        authorize_url = 'https://zoom.us/oauth/authorize?response_type=code&client_id={0}&redirect_uri={1}&state={2}'.format(Settings.zoom_client_id, urllib.parse.quote_plus(Settings.zoom_redirect_uri), state)
                         print("ZoomOAuthHandler.get authorize_url:{0}".format(authorize_url))
                         self.redirect(authorize_url)
                         return
@@ -186,11 +196,16 @@ class AzureOAuthHandler(BaseHandler):
                     if self.get_argument("code", None):
                         code = self.get_argument("code")
                         yield self.get_tokens(code)
-                        self.redirect("/")
+                        state = self.get_argument("state","")
+                        if state != "":
+                            self.redirect(state)
+                        else:
+                            self.redirect("/")
                         return
                     else:
+                        state = self.get_argument("state","")
                         authorize_url = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id={0}&response_type=code'.format(Settings.azure_client_id)
-                        authorize_url += '&redirect_uri={0}&response_mode=query&scope=offline_access%20{1}&state=12345'.format(urllib.parse.quote_plus(Settings.azure_redirect_uri), Settings.azure_scopes)
+                        authorize_url += '&redirect_uri={0}&response_mode=query&scope=offline_access%20{1}&state={2}'.format(urllib.parse.quote_plus(Settings.azure_redirect_uri), Settings.azure_scopes, state)
                         print("AzureOAuthHandler.get authorize_url:{0}".format(authorize_url))
                         self.redirect(authorize_url)
                         return

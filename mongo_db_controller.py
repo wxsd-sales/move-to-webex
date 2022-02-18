@@ -70,7 +70,8 @@ class MongoController(object):
                         "expire_date":datetime.utcnow() + timedelta(seconds=expires_in+hours),
                         "refresh_token":refresh_token
             }
-            inserted = self.db["{0}_users".format(where)].update({"person_id":person_id}, document, upsert=True)
+            mycol = self.db["{0}_users".format(where)]
+            inserted = mycol.update_one({"person_id":person_id}, {"$set": document}, upsert=True)
             result = document
         except Exception as e:
             traceback.print_exc()
@@ -93,18 +94,6 @@ class MongoController(object):
 
     def delete_user(self, person_id, where="zoom"):
         self.db["{0}_users".format(where)].delete_one({"person_id":person_id})
-
-    """
-    def insert_meetings(self, zoom_user, meetings_list):
-        for meeting in meetings_list:
-            meeting.update({"person_id":zoom_user['person_id']})
-            meeting.pop('created_at')
-            meeting.pop('join_url')
-            try:
-                self.meetings.insert_one(meeting)
-            except DuplicateKeyError as dke:
-                pass
-    """
 
     def insert_meeting(self, person_id, source_meeting_id, webex_meeting_id):
         ret_val = False
