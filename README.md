@@ -29,7 +29,7 @@ Move your existing meetings from Zoom to Webex in your Calendar.  This app will 
 7. Click Transfer.
 
 ### NEW Simplified Walkthrough
-<a href="https://zoomtowebex.wbx.ninja/simplified"><strong>Simplified Demo</strong></a>
+<a href="https://zoomtowebex.wbx.ninja/simplified"><strong>Simplified Demo</strong></a>  
 This version follows a similar path as the above walkthrough, but does not require authentication with Zoom!  
 
 1. To use the simplified version, click the above link or navigate to https://zoomtowebex.wbx.ninja/simplified
