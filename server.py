@@ -41,9 +41,7 @@ class SimplifiedHandler(BaseHandler):
                 person = json.loads(person)
                 print(person)
                 meetings_count = None
-                msft_user = self.application.settings['db'].get_user(person['id'], "msft")
-                if msft_user != None:
-                    msft_user = True
+                msft_user = self.application.settings['db'].is_user(person['id'], "msft")
                 self.render("simplified.html", person=person, tokens={"msft_token":msft_user}, meetings_count=meetings_count)
         except Exception as e:
             traceback.print_exc()
@@ -61,13 +59,9 @@ class MainHandler(BaseHandler):
             else:
                 person = json.loads(person)
                 print(person)
-                zoom_user = self.application.settings['db'].get_user(person['id'], "zoom")
                 meetings_count = None
-                if zoom_user != None:
-                    zoom_user = True
-                msft_user = self.application.settings['db'].get_user(person['id'], "msft")
-                if msft_user != None:
-                    msft_user = True
+                zoom_user = self.application.settings['db'].is_user(person['id'], "zoom")
+                msft_user = self.application.settings['db'].is_user(person['id'], "msft")
                 tokens = {"zoom_token":zoom_user, "msft_token":msft_user}
                 self.render("main.html", person=person, tokens=tokens, meetings_count=meetings_count)
         except Exception as e:
@@ -440,7 +434,7 @@ class CommandHandler(BaseHandler):
                         api_resp = yield Spark(person['token']).post('https://webexapis.com/v1/meetings', api_data)
                         print("api_resp.body:{0}".format(api_resp.body))
                         webex_meeting_id = api_resp.body.get('id')
-                        result = self.application.settings['db'].insert_meeting(person['id'], meeting_id, webex_meeting_id, meeting.get('msft_id'))
+                        result = self.application.settings['db'].insert_meeting(person['id'], person.get('emails', [None])[0], meeting_id, webex_meeting_id, meeting.get('msft_id'))
                         return_data.update({meeting_id:webex_meeting_id})
                     except HTTPError as he:
                         print("transfer_command HTTPError:{0}".format(he))

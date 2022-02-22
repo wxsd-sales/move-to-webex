@@ -86,6 +86,12 @@ class MongoController(object):
             refresh_token = user.get('refresh_token')
         return token, refresh_token
 
+    def is_user(self, person_id, where="zoom"):
+        user = self.get_user(person_id, where)
+        if user != None:
+            user = True
+        return user
+        
     def get_user(self, person_id, where="zoom"):
         return self.db["{0}_users".format(where)].find_one({"person_id":person_id})
 
@@ -101,10 +107,11 @@ class MongoController(object):
             applicable_meeting_ids.append(alt_meeting_id)
         return self.meetings.find_one({"person_id": person_id, "$or" : [ {"source_meeting_id": {"$in": applicable_meeting_ids}} , {"alt_meeting_id": {"$in": applicable_meeting_ids}} ] })
 
-    def insert_meeting(self, person_id, source_meeting_id, webex_meeting_id, alt_meeting_id=None):
+    def insert_meeting(self, person_id, person_email, source_meeting_id, webex_meeting_id, alt_meeting_id=None):
         ret_val = False
         try:
             document = {"person_id":person_id,
+                        "person_email":person_email,
                         "webex_meeting_id":webex_meeting_id,
                         "source_meeting_id":source_meeting_id}
             if alt_meeting_id not in [None, webex_meeting_id]:
