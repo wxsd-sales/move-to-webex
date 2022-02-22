@@ -172,11 +172,11 @@ class CommandHandler(BaseHandler):
                                     addTopic += "/" + subject.strip()
                             meeting.pop('subjects')
                             meeting['topic'] += addTopic
-                        result = self.application.settings['db'].meetings.find_one({"person_id": person['id'], "source_meeting_id":meeting_id})
+                        result = self.application.settings['db'].find_meeting(meeting_id, person['id'], meeting.get("msft_id"))
                         if result != None:
                             result_object['data'][meeting_id].update({"webex_meeting_id":result['webex_meeting_id']})
                 elif command == 'transfer':
-                    result_object = yield self.transfer_command(person, jbody.get('meetings'), result_object, zoom_user, msft_user)
+                    result_object = yield self.transfer_command(person, jbody.get('meetings'), result_object, msft_user)
         self.write(json.dumps(result_object))
 
     @tornado.gen.coroutine
@@ -333,16 +333,16 @@ class CommandHandler(BaseHandler):
         raise tornado.gen.Return(result_object)
 
     @tornado.gen.coroutine
-    def transfer_command(self, person, meetings, result_object, zoom_user, msft_user):
+    def transfer_command(self, person, meetings, result_object, msft_user):
         print('transfer_command')
         print("meetings:{0}".format(meetings))
         return_data = {}
         for meeting_id in meetings:
-            result = self.application.settings['db'].meetings.find_one({"person_id": person['id'], "source_meeting_id":meeting_id})
+            meeting = meetings[meeting_id]
+            result = self.application.settings['db'].find_meeting(meeting_id, person['id'], meeting.get('msft_id'))
             if result != None:
                 return_data.update({meeting_id:result["webex_meeting_id"]})
             else:
-                meeting = meetings[meeting_id]
                 print("meeting_id:{0}".format(meeting_id))
                 topic = meeting.get('topic', meeting.get('subjects', [None])[0] )
                 zoom_index = topic.lower().find('zoom')
@@ -440,7 +440,7 @@ class CommandHandler(BaseHandler):
                         api_resp = yield Spark(person['token']).post('https://webexapis.com/v1/meetings', api_data)
                         print("api_resp.body:{0}".format(api_resp.body))
                         webex_meeting_id = api_resp.body.get('id')
-                        result = self.application.settings['db'].insert_meeting(zoom_user['person_id'], meeting_id, webex_meeting_id)
+                        result = self.application.settings['db'].insert_meeting(person['id'], meeting_id, webex_meeting_id, meeting.get('msft_id'))
                         return_data.update({meeting_id:webex_meeting_id})
                     except HTTPError as he:
                         print("transfer_command HTTPError:{0}".format(he))

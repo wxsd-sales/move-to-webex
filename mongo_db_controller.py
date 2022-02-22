@@ -95,18 +95,25 @@ class MongoController(object):
     def delete_user(self, person_id, where="zoom"):
         self.db["{0}_users".format(where)].delete_one({"person_id":person_id})
 
-    def insert_meeting(self, person_id, source_meeting_id, webex_meeting_id):
+    def find_meeting(self, meeting_id, person_id, alt_meeting_id=None):
+        applicable_meeting_ids = [meeting_id]
+        if alt_meeting_id != None:
+            applicable_meeting_ids.append(alt_meeting_id)
+        return self.meetings.find_one({"person_id": person_id, "$or" : [ {"source_meeting_id": {"$in": applicable_meeting_ids}} , {"alt_meeting_id": {"$in": applicable_meeting_ids}} ] })
+
+    def insert_meeting(self, person_id, source_meeting_id, webex_meeting_id, alt_meeting_id=None):
         ret_val = False
         try:
             document = {"person_id":person_id,
                         "webex_meeting_id":webex_meeting_id,
                         "source_meeting_id":source_meeting_id}
+            if alt_meeting_id not in [None, webex_meeting_id]:
+                document.update({"alt_meeting_id":alt_meeting_id})
             self.meetings.insert_one(document)
             ret_val = True
         except DuplicateKeyError as dke:
             pass
         return ret_val
-
 
     def update(self, room_id, person_id, question, answers, anon, person_name, responded_users_type, prev_vote):
         question = self.sanitize(question)

@@ -369,7 +369,7 @@ function addTransferButton(selector, text){
           }
         }
         console.log(meetings);
-        data = {"command":"transfer", "meetings":meetings};
+        data = {"command":"transfer", "meetings":meetings, "version":pageVersion};
         $.post('/command', JSON.stringify(data), function(resp){
           console.log('/command transfer response:');
           console.log(resp);
@@ -461,21 +461,24 @@ function searchFunction(){
   }
 }
 
+function search(){
+  let searchInput = $('#searchInput').val();
+  if(searchInput.length == 0){
+    $("#searchError").show();
+  } else {
+    $("#searchError").hide();
+    searchFunction();
+  }
+}
+
 function msftConfig(){
   if(msftToken != "None"){
     $('#searchNextStepImg').show();
     $('#searchButton').prop('disabled', false);
+    $('#searchInput').prop('disabled', false);
     if(pageVersion == 'simplified'){
       setDivReady('#searchMeetingsDiv', false);
-      $('#searchButton').on('click', function(){
-        let searchInput = $('#searchInput').val();
-        if(searchInput.length == 0){
-          $("#searchError").show();
-        } else {
-          $("#searchError").hide();
-          searchFunction();
-        }
-      });
+      $('#searchButton').on('click', search);
     } else {
       setDivReady('#searchMeetingsDiv');
       $('#searchMeetingsDiv').on('click', searchFunction);
@@ -502,6 +505,12 @@ $('document').ready(function() {
   addTransferButton('#transferMeetingsDiv', ` my ${meetingTypeTitle}meetings to Webex.`);
 
   $('#searchButton').prop('disabled', true);
+  $('#searchInput').prop('disabled', true);
+  $('#searchInput').on('keyup', function (e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+        search();
+    }
+});
   $('#transferButton').prop('disabled', true);
 
 
