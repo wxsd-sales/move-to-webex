@@ -34,15 +34,17 @@ class SimplifiedHandler(BaseHandler):
     def get(self):
         try:
             print("SimplifiedHandler GET")
-            person = self.get_current_user()
-            if not person:
-                self.redirect('/webex-oauth?state=simplified')
-            else:
-                person = json.loads(person)
-                print(person)
-                meetings_count = None
-                msft_user = self.application.settings['db'].is_user(person['id'], "msft")
-                self.render("simplified.html", person=person, tokens={"msft_token":msft_user}, meetings_count=meetings_count)
+            self.load_page("simplified", zoom_token=False)
+        except Exception as e:
+            traceback.print_exc()
+
+class FedRampHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @tornado.gen.coroutine
+    def get(self):
+        try:
+            print("FedRampHandler GET")
+            self.load_page("fedramp", zoom_token=False)
         except Exception as e:
             traceback.print_exc()
 
@@ -53,30 +55,23 @@ class MainHandler(BaseHandler):
     def get(self):
         try:
             print("MainHandler GET")
-            person = self.get_current_user()
-            if not person:
-                self.redirect('/webex-oauth')
-            else:
-                person = json.loads(person)
-                print(person)
-                meetings_count = None
-                zoom_user = self.application.settings['db'].is_user(person['id'], "zoom")
-                msft_user = self.application.settings['db'].is_user(person['id'], "msft")
-                tokens = {"zoom_token":zoom_user, "msft_token":msft_user}
-                self.render("main.html", person=person, tokens=tokens, meetings_count=meetings_count)
+            self.load_page()
         except Exception as e:
             traceback.print_exc()
 
 class CommandHandler(BaseHandler):
     @tornado.gen.coroutine
     def post(self):
-        person = self.get_current_user()
-        print("CommandHandler, person: {0}".format(person))
         jbody = json.loads(self.request.body)
         print("CommandHandler request.body:{0}".format(jbody))
         command = jbody.get('command')
         version = jbody.get('version')
         search_term = jbody.get('search_term')
+        if version == "fedramp":
+            person = self.get_fedramp_user()
+        else:
+            person = self.get_current_user()
+        print("CommandHandler, person: {0}".format(person))
         result_object = {"reason":None, "code":200, "data":None}
         if not person:
             result_object['reason'] = 'Not Authenticated with Webex.'
@@ -170,7 +165,7 @@ class CommandHandler(BaseHandler):
                         if result != None:
                             result_object['data'][meeting_id].update({"webex_meeting_id":result['webex_meeting_id']})
                 elif command == 'transfer':
-                    result_object = yield self.transfer_command(person, jbody.get('meetings'), result_object, msft_user)
+                    result_object = yield self.transfer_command(person, jbody.get('meetings'), result_object, msft_user, version)
         self.write(json.dumps(result_object))
 
     @tornado.gen.coroutine
@@ -281,7 +276,7 @@ class CommandHandler(BaseHandler):
                             my_object["start_time"] = my_object["start_msft"]["dateTime"].rsplit(".",1)[0] + "Z"
 
                         temp_ids = []
-                        if version == "simplified":
+                        if version != None:
                             temp_ids.append(value['id'])
                         else:
                             for split in search_found_splits[1:]:#start at index 1, because 0 will never be a meetingId
@@ -313,7 +308,7 @@ class CommandHandler(BaseHandler):
             found_meeting_ids, zoom_user_info, result_object = yield self.search_zoom_meetings(zoom_user, result_object)
             search_term = zoom_user_info['base_url']
             search_pmi = zoom_user_info['pmi']
-        if found_meeting_ids != {} or version in ['simplified']:
+        if found_meeting_ids != {} or version != None:
             found_meeting_ids, pmi_meetings, result_object = yield self.search_msft_calendar(msft_user, result_object, found_meeting_ids, search_term, search_pmi, version)
             if result_object['code'] == 200:
                 #print("found_meeting_ids:{0}".format(found_meeting_ids))
@@ -327,7 +322,7 @@ class CommandHandler(BaseHandler):
         raise tornado.gen.Return(result_object)
 
     @tornado.gen.coroutine
-    def transfer_command(self, person, meetings, result_object, msft_user):
+    def transfer_command(self, person, meetings, result_object, msft_user, version):
         print('transfer_command')
         print("meetings:{0}".format(meetings))
         return_data = {}
@@ -431,7 +426,11 @@ class CommandHandler(BaseHandler):
 
                     print("api_data:{0}".format(api_data))
                     try:
-                        api_resp = yield Spark(person['token']).post('https://webexapis.com/v1/meetings', api_data)
+                        if version == "fedramp":
+                            api_url = 'https://api-usgov.webex.com/v1'
+                        else:
+                            api_url = 'https://webexapis.com/v1'
+                        api_resp = yield Spark(person['token']).post('{0}/meetings'.format(api_url), api_data)
                         print("api_resp.body:{0}".format(api_resp.body))
                         webex_meeting_id = api_resp.body.get('id')
                         result = self.application.settings['db'].insert_meeting(person['id'], person.get('emails', [None])[0], meeting_id, webex_meeting_id, meeting.get('msft_id'))
@@ -464,6 +463,7 @@ def main():
         app = tornado.web.Application([
                 (r"/", MainHandler),
                 (r"/simplified", SimplifiedHandler),
+                (r"/fedramp", FedRampHandler),
 
                 (r"/command", CommandHandler),
                 (r"/azure", AzureOAuthHandler),

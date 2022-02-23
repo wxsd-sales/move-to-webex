@@ -422,7 +422,7 @@ function setDivReady(selector, cursor){
 
 function searchFunction(){
   let searchTerm = null;
-  if(pageVersion == "simplified"){
+  if(["simplified", "fedramp"].indexOf(pageVersion) >= 0){
     $('#searchInput').hide();
     searchTerm = $('#searchInput').val();
   }
@@ -476,7 +476,7 @@ function msftConfig(){
     $('#searchNextStepImg').show();
     $('#searchButton').prop('disabled', false);
     $('#searchInput').prop('disabled', false);
-    if(pageVersion == 'simplified'){
+    if(["simplified", "fedramp"].indexOf(pageVersion) >= 0){
       setDivReady('#searchMeetingsDiv', false);
       $('#searchButton').on('click', search);
     } else {
@@ -538,7 +538,7 @@ $('document').ready(function() {
       $('#zoomSignInDiv').on('click', function(){
         window.location = '/zoom-oauth';
       })
-    } else if(pageVersion == 'simplified'){
+    } else if(["simplified", "fedramp"].indexOf(pageVersion) >= 0){
       msftConfig();
     }
 

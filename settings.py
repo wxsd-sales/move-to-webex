@@ -5,6 +5,10 @@ load_dotenv()
 
 class Settings(object):
 	port = int(os.environ.get("MY_APP_PORT"))
+
+	fedramp_client_id = os.environ.get("MY_FEDRAMP_CLIENT_ID")
+	fedramp_client_secret = os.environ.get("MY_FEDRAMP_SECRET")
+	
 	webex_client_id = os.environ.get("MY_WEBEX_CLIENT_ID")
 	webex_client_secret = os.environ.get("MY_WEBEX_SECRET")
 	webex_redirect_uri = os.environ.get("MY_WEBEX_REDIRECT_URI")
