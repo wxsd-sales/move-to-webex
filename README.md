@@ -28,6 +28,17 @@ Move your existing meetings from Zoom to Webex in your Calendar.  This app will 
 6. Review the found meetings, and select any you wish to transfer.
 7. Click Transfer.
 
+### NEW Simplified Walkthrough
+<a href="https://zoomtowebex.wbx.ninja/simplified"><strong>Simplified Demo</strong></a>  
+This version follows a similar path as the above walkthrough, but does not require authentication with Zoom!  
+
+1. To use the simplified version, click the above link or navigate to https://zoomtowebex.wbx.ninja/simplified
+2. Sign in with your Webex account credentials.
+3. Sign in with your Microsoft Outlook/0365 version.
+4. Enter a search parameter to find meetings. For example, **your_org.zoom.us**, then click Search.
+5. Review and select meetings to transfer.
+6. Click Transfer.
+
 ### Built With
 
 - Python3 (v3.8.1)  
