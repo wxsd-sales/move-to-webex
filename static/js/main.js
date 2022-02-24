@@ -171,109 +171,118 @@ function capitalizeFirstLetter(string) {
 }
 
 const recurTypes = {"daily":"day", "weekly": "week", "relativeMonthly":"week", "absoluteMonthly":"month", "yearly":"year"}
-function setRecurrenceString(recurrenceJson, startTime){
-  if(recurrenceJson == null){
-    return "";
+function setRecurrenceString(recurrenceJson, recurType){
+  let returnStr = "Every ";
+  let interval = recurrenceJson['pattern']['interval'];
+  if(recurrenceJson['pattern']['type'] == "relativeMonthly"){
+    returnStr += interval == 1 ? `month ` : `${interval} months `;
+    returnStr += "on the " + recurrenceJson['pattern']['index'] + " ";
   } else {
-    let returnStr = "Every ";
-    let recurType = recurTypes[recurrenceJson['pattern']['type']];
-    let interval = recurrenceJson['pattern']['interval'];
-    if(recurrenceJson['pattern']['type'] == "relativeMonthly"){
-      returnStr += interval == 1 ? `month ` : `${interval} months `;
-      returnStr += "on the " + recurrenceJson['pattern']['index'] + " ";
+    if(recurType == 'day' && interval == 1){
+      returnStr += 'day ';
+    } else if(interval == 1){
+      returnStr += `${recurType} on `
     } else {
-      if(recurType == 'day' && interval == 1){
-        returnStr += 'day ';
-      } else if(interval == 1){
-        returnStr += `${recurType} on `
+      returnStr += `${interval} ${recurType}s on `;
+    }
+  }
+
+  let frequencyString = "";
+  if(recurType == "week"){
+    for(let day of recurrenceJson['pattern']['daysOfWeek']){
+      day = capitalizeFirstLetter(day);
+      if(frequencyString.length == 0){
+        frequencyString = `${day}`;
       } else {
-        returnStr += `${interval} ${recurType}s on `;
+        frequencyString += `, ${day}`;
       }
     }
+  } else if(recurType == "month"){
+    let day = recurrenceJson['pattern']['dayOfMonth']
+    frequencyString = `the ${day}`;
+    if(parseInt(day) == 1){
+      frequencyString += "st";
+    } else if(parseInt(day) == 2){
+      frequencyString += "nd";
+    } else if(parseInt(day) == 3){
+      frequencyString += "rd";
+    } else {
+      frequencyString += "th";
+    }
+  }
+  if(frequencyString.length > 0){
+    returnStr += `${frequencyString} `;
+  }
 
-    let frequencyString = "";
-    if(recurType == "week"){
-      for(let day of recurrenceJson['pattern']['daysOfWeek']){
-        day = capitalizeFirstLetter(day);
-        if(frequencyString.length == 0){
-          frequencyString = `${day}`;
-        } else {
-          frequencyString += `, ${day}`;
+  if(recurrenceJson['range']['type'] == "noEnd"){
+    returnStr += 'until cancelled.';
+  } else if (recurrenceJson['range']['type'] == "endDate"){
+    returnStr += `until ${recurrenceJson['range']['endDate']}.`;
+  } else {
+    returnStr += "until: " + JSON.stringify(recurrenceJson['range']);
+  }
+  return returnStr;
+}
+
+function getNextDate(recurrenceJson, recurType, startTime){
+  startDate = new Date(startTime);
+  now = new Date();
+  let returnDate = null;
+  console.log(recurrenceJson)
+  if(startDate != "Invalid Date" && startDate < now){
+    console.log('in')
+    now.setHours(startDate.getHours());
+    now.setMinutes(startDate.getMinutes());
+    now.setSeconds(startDate.getSeconds());
+    if(now < new Date()){//did setting the time above end us up in the past?
+      now.setDate(now.getDate() + 1);
+    }
+    if(recurType == "day"){
+      returnDate = now;
+    } else if(recurType == "week"){
+      let daysOfWeek = recurrenceJson['pattern']['daysOfWeek'];
+      if(daysOfWeek.length > 0){
+        attempts = 0
+        weekdays = {0:"sunday", 1:"monday", 2:"tuesday", 3:"wednesday", 4:"thursday", 5:"friday", 6:"saturday"}
+        weekday = weekdays[now.getDay()];
+        while(daysOfWeek.indexOf(weekday) < 0 && attempts < 7){
+          now.setDate(now.getDate() + 1);
+          weekday = weekdays[now.getDay()];
+          attempts += 1;
+        }
+        if(attempts < 8){
+          returnDate = now;
         }
       }
     } else if(recurType == "month"){
-      let day = recurrenceJson['pattern']['dayOfMonth']
-      frequencyString = `the ${day}`;
-      if(parseInt(day) == 1){
-        frequencyString += "st";
-      } else if(parseInt(day) == 2){
-        frequencyString += "nd";
-      } else if(parseInt(day) == 3){
-        frequencyString += "rd";
-      } else {
-        frequencyString += "th";
+      now.setDate(startDate.getDate());
+      if(now < new Date()){
+        now.setMonth(now.getMonth() + 1);
       }
+      returnDate = now;
     }
-    if(frequencyString.length > 0){
-      returnStr += `${frequencyString} `;
-    }
-
-    if(recurrenceJson['range']['type'] == "noEnd"){
-      returnStr += 'until cancelled.';
-    } else if (recurrenceJson['range']['type'] == "endDate"){
-      returnStr += `until ${recurrenceJson['range']['endDate']}.`;
-    } else {
-      returnStr += "until: " + JSON.stringify(recurrenceJson['range']);
-    }
-
-    startDate = new Date(startTime);
-    now = new Date();
-    let returnDate = null;
-    if(startDate != "Invalid Date" && startDate < now){
-      now.setHours(startDate.getHours());
-      now.setMinutes(startDate.getMinutes());
-      now.setSeconds(startDate.getSeconds());
-      if(now < new Date()){//did setting the time above end us up in the past?
-        now.setDate(now.getDate() + 1);
-      }
-      if(recurType == "day"){
-        returnDate = now;
-      } else if(recurType == "week"){
-        let daysOfWeek = recurrenceJson['pattern']['daysOfWeek'];
-        if(daysOfWeek.length > 0){
-          attempts = 0
-          weekdays = {0:"sunday", 1:"monday", 2:"tuesday", 3:"wednesday", 4:"thursday", 5:"friday", 6:"saturday"}
-          weekday = weekdays[now.getDay()];
-          while(daysOfWeek.indexOf(weekday) < 0 && attempts < 7){
-            now.setDate(now.getDate() + 1);
-            weekday = weekdays[now.getDay()];
-            attempts += 1;
-          }
-          if(attempts < 8){
-            returnDate = now;
-          }
-        }
-      } else if(recurType == "month"){
-        now.setDate(startDate.getDate());
-        if(now < new Date()){
-          now.setMonth(now.getMonth() + 1);
-        }
-        returnDate = now;
-      }
-    }
-    return {"string":returnStr, "date":returnDate};
   }
+  return returnDate;
 }
 
 function makeRow(id, meeting, source){
   let cell_id = id;
   if(source == "pmi"){ cell_id = meeting["msft_id"]; }
   let checkbox = setCheckbox(cell_id, meeting);
-  let recurrence = setRecurrenceString(meeting['recurrence_msft'], meeting["start_time"]);
-  let startDate = meeting["start_time"];
-  if([undefined, null].indexOf(recurrence["date"]) < 0){
-    startDate = recurrence["date"];
-    meeting["start_time"] = recurrence["date"].toISOString().split(".")[0] + "Z"
+  let recurrence = "";
+  if(meeting['recurrence_msft'] != null){
+    let recurType = recurTypes[meeting['recurrence_msft']['pattern']['type']];
+    recurrence = setRecurrenceString(meeting['recurrence_msft'], recurType);
+    if(meeting['recurrence_msft'].hasOwnProperty('next')){
+      meeting["start_time"] = meeting['recurrence_msft']['next'].split(".")[0] + "Z";
+    } else {
+      console.log('calling getNextDate')
+      let nextDate = getNextDate(meeting['recurrence_msft'], recurType, meeting['start_time']);
+      if (nextDate != null){
+        console.log('setting new start_time to nextDate')
+        meeting["start_time"] = nextDate.toISOString().split(".")[0] + "Z";
+      }
+    }
   }
 
   let participants = "";
@@ -297,7 +306,7 @@ function makeRow(id, meeting, source){
   }
   row.append($('<td id="topic_'+cell_id+'" class="scroll-cell">').text(subject),
              $('<td id="webex_id_'+cell_id+'">').text(checkbox['webexId']),
-             setDisplayDate($('<td id="start_time">'), startDate),
+             setDisplayDate($('<td id="start_time">'), meeting["start_time"]),
              $('<td id="duration_'+cell_id+'">').text(duration),
              $('<td>').text(recurrence["string"]),
              $('<td id="attendees_'+cell_id+'" class="scroll-cell">').text(participants),
@@ -366,6 +375,10 @@ function addTransferButton(selector, text){
             meetings[box.id] = getPMIMeeting(box.id);
           } else {
             meetings[box.id] = meetingData[box.id];
+          }
+          if(!meetings[box.id].hasOwnProperty('timezone')){
+            console.log('no timezone, adding:')
+            meetings[box.id]['timezone'] = mytz;
           }
         }
         console.log(meetings);

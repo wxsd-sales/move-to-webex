@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+from inspect import trace
 import os
 import json
 import pytz
-import random
 import re
 import traceback
 
@@ -206,6 +206,22 @@ class CommandHandler(BaseHandler):
         print("zoom_user_info:{0}".format(zoom_user_info))
         raise tornado.gen.Return((found_meeting_ids, zoom_user_info, result_object))
 
+    @tornado.gen.coroutine
+    def get_next_msft_instance(self, id, msft_user):
+        return_date = ""
+        now = datetime.now()
+        instance_start = now.isoformat()
+        instance_end = (now + timedelta(days=365)).isoformat()
+        get_instance_url = "https://graph.microsoft.com/v1.0/me/calendar/events/{0}/instances?"
+        get_instance_url += "startDateTime={1}&endDateTime={2}&$select=subject,start&$top=1"
+        get_instance_url = get_instance_url.format(id, instance_start, instance_end)
+        print('get_instance_url:{0}'.format(get_instance_url))
+        instance_resp, msft_user = yield msftGET(get_instance_url, msft_user)
+        if len(instance_resp.get('value')) > 0:
+            instance = instance_resp['value'][0]
+            print('instance: {0}'.format(instance))
+            return_date = instance.get('start', {}).get('dateTime',"")
+        raise tornado.gen.Return((return_date, msft_user))
 
     @tornado.gen.coroutine
     def search_msft_calendar(self, msft_user, result_object, found_meeting_ids, search_term, search_pmi, version):
@@ -220,9 +236,8 @@ class CommandHandler(BaseHandler):
             self.application.settings['db'].update_user(msft_user['person_id'], {"email":user_email})
             counter = 0
             pmi_meetings = []
-            #TODO: make this more precise with user's timezone from browser?
-            since_day = (datetime.now()- timedelta(days=1)).strftime('%Y-%m-%dT00:00')
-            next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%dT00:00')
+            since_day = datetime.now().strftime('%Y-%m-%dT%H:%M')
+            #next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%dT00:00')
             #$filter=sender/emailAddress/address+eq+'{0}'&$select=subject,body,toRecipients
             #get_events_url = "/me/calendar/events$filter=organizer/emailAddress/address+eq+'{0}'&$select=attendees,body,location,start,end,subject,hasAttachments,bodyPreview,id,transactionId,originalStartTimeZone,originalEndTimeZone,recurrence"
             #Additional $select parameters that may be worthwhile, are:
@@ -241,10 +256,16 @@ class CommandHandler(BaseHandler):
                     print(value)
                     attendees = []
                     search_found_splits = None
-                    if value.get('recurrence') and value['recurrence'].get('range'):
-                        if value['recurrence']['range'].get('type') == 'endDate':
-                            if value['recurrence']['range'].get('endDate') < next_day:
+                    msft_recur = value.get('recurrence')
+                    if msft_recur:
+                        if msft_recur.get('range') and msft_recur['range'].get('type') == 'endDate':
+                            if msft_recur['range'].get('endDate') < since_day:
                                 continue
+                        if msft_recur.get('pattern') and msft_recur['pattern'].get('interval', 0) > 1:
+                            next_time, msft_user = yield self.get_next_msft_instance(value['id'], msft_user)
+                            if next_time != "":
+                                msft_recur.update({'next':next_time})
+                            
                     if search_term in value['location']['displayName']:
                         print('found {0} meeting in content location.'.format(search_term))
                         search_found_splits =  value['location']['displayName'].split(search_term)
@@ -266,7 +287,7 @@ class CommandHandler(BaseHandler):
                                      "attendees": attendees,
                                      "start_msft": value['start'],
                                      "end_msft": value['end'],
-                                     "recurrence_msft": value['recurrence'],
+                                     "recurrence_msft": msft_recur,
                                      "start_tz_msft":value['originalStartTimeZone'],
                                      "duration_msft":duration_msft}
 
@@ -327,130 +348,141 @@ class CommandHandler(BaseHandler):
         print("meetings:{0}".format(meetings))
         return_data = {}
         for meeting_id in meetings:
-            meeting = meetings[meeting_id]
-            result = self.application.settings['db'].find_meeting(meeting_id, person['id'], meeting.get('msft_id'))
-            if result != None:
-                return_data.update({meeting_id:result["webex_meeting_id"]})
-            else:
-                print("meeting_id:{0}".format(meeting_id))
-                topic = meeting.get('topic', meeting.get('subjects', [None])[0] )
-                zoom_index = topic.lower().find('zoom')
-                if zoom_index >= 0:
-                    topic = topic[:zoom_index] + "Webex" + topic[zoom_index+4:]
-                start_time = None
-                try:
-                    start_time = parser.parse(meeting['start_time'])
-                except Exception as e:
-                    err_result = {'error_reason': 'Invalid StartTime', 'code':400}
-                    return_data.update({meeting_id:err_result})
-                if start_time != None:
-                    if meeting.get('duration'):
-                        end_time = start_time + timedelta(minutes=meeting['duration'])
-                    else:
-                        end_time = start_time + timedelta(minutes=meeting['duration_msft'])
-                    api_data = {"title":topic,
-                                "start":start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
-                                "end":end_time.strftime('%Y-%m-%dT%H:%M:%S.000Z'),
-                                "enableAutoRecordMeeting":False,
-                                "sendEmail":True
-                                }
-                    invitees = []
-                    if(len(meeting.get('attendees', [])) > 0):
-                        for attendee in meeting['attendees']:
-                            invitees.append({"email":attendee, "coHost":False})
-                    print(msft_user.get('email'))
-                    print(person.get('emails')[0])
-                    if(msft_user.get('email') not in [None, person.get('emails')[0]]):
-                        invitees.append({"email":msft_user.get('email'), "coHost":False})#this is in case the user's Webex email address is not the same as their outlook email addr for some reason.
-                    if len(invitees) > 0:
-                        api_data.update({"invitees":invitees})
-                    rrule = ""
-                    interval = 1
-                    if meeting.get('recurrence_msft') != None:
-                        print('msft recurrence')
-                        pattern = meeting['recurrence_msft']['pattern']
-                        ms_range = meeting['recurrence_msft']['range']
-                        interval = 'INTERVAL={0};'.format(pattern['interval'])
-                        freq = pattern['type']
-                        if freq in ["absoluteMonthly", "relativeMonthly"]:
-                            freq = "monthly"
-                        freq = 'FREQ={0};'.format(freq.upper())
-                        wkst = 'WKST={0};'.format(pattern['firstDayOfWeek'][:2].upper()) #This will usually be sunday and result in SU, which is default RFC 5545, but doesn't hurt to add it
-                        byday = ''
-                        bymonthday = ''
-                        bymonth = ''
-                        until = ''
-                        indexes = {"first":"1", "second":"2", "third":"3", "fourth":"4", "fifth":"5", "last":"-1"}
-                        if pattern.get('daysOfWeek', []) != []:
-                            for day in pattern['daysOfWeek']:
-                                byday += '{0}{1}'.format(indexes.get(pattern['index'], ''), day[:2].upper()) #first two letters of weekday, SU, MO, TU, etc
-                            if byday != '':
-                                byday = 'BYDAY={0};'.format(byday)
-                        elif pattern.get('dayOfMonth') not in [0, None]:
-                            bymonthday = 'BYMONTHDAY={0};'.format(pattern['dayOfMonth'])
-                        if pattern.get('month', 0) != 0:
-                            bymonth = 'BYMONTH={0};'.format(pattern['month'])
-                        if ms_range['type'] == 'endDate':
-                            rrEndDate = datetime.strptime( ms_range['endDate'], '%Y-%m-%d')
-                            rrEndDate = rrEndDate.strftime("%Y%m%d") + "T" + start_time.strftime('%H%M%SZ')
-                            until = 'UNTIL={0};'.format(rrEndDate)
-                        rrule = '{0}{1}{2}{3}{4}{5}{6}'.format(freq, interval, wkst, byday, bymonthday, bymonth, until)
-                    elif meeting.get('recurrence') != None:
-                        print('zoom recurrence')
-                        weekdays = {1:"SU",2:"MO",3:"TU",4:"WE",5:"TH",6:"FR",7:"SA"}
-                        recurrence = meeting['recurrence']
-
-                        interval = 'INTERVAL={0};'.format(recurrence['repeat_interval'])
-                        freq = ""
-                        byday = ""
-                        until = ""
-                        count = ""
-                        if recurrence.get('monthly_week') != None and recurrence.get('monthly_week_day') != None:
-                            freq = 'FREQ=MONTHLY;'
-                            byday = 'BYDAY={0}{1};'.format(recurrence.get('monthly_week'), weekdays[recurrence['monthly_week_day']])
-                        elif recurrence.get('weekly_days') != None:
-                            freq = 'FREQ=WEEKLY;'
-                            byday = 'BYDAY={0};'.format(weekdays[int(recurrence['weekly_days'])])
-                        elif len(recurrence.keys()) == 3:
-                            freq = 'FREQ=DAILY;'
-                        if recurrence.get('end_date_time') != None:
-                            rrEndDate = datetime.strptime(recurrence['end_date_time'], '%Y-%m-%dT%H:%M:%SZ')
-                            rrEndDate = rrEndDate.strftime("%Y%m%dT%H%M%SZ")
-                            until = "UNTIL={0};".format(rrEndDate)
-                        elif recurrence.get('end_times') != None:
-                            count = "COUNT={0};".format(recurrence['end_times'])
-                        rrule = '{0}{1}{2}{3}{4}'.format(freq, interval, byday, until, count)
-                    print(rrule)
-                    if rrule != "":
-                        api_data.update({"recurrence":rrule})
-
-                    print("api_data:{0}".format(api_data))
+            try:
+                meeting = meetings[meeting_id]
+                result = self.application.settings['db'].find_meeting(meeting_id, person['id'], meeting.get('msft_id'))
+                if result != None:
+                    return_data.update({meeting_id:result["webex_meeting_id"]})
+                else:
+                    print("meeting_id:{0}".format(meeting_id))
+                    topic = meeting.get('topic', meeting.get('subjects', [None])[0] )
+                    zoom_index = topic.lower().find('zoom')
+                    if zoom_index >= 0:
+                        topic = topic[:zoom_index] + "Webex" + topic[zoom_index+4:]
+                    start_time = None
                     try:
-                        if version == "fedramp":
-                            api_url = 'https://api-usgov.webex.com/v1'
-                        else:
-                            api_url = 'https://webexapis.com/v1'
-                        api_resp = yield Spark(person['token']).post('{0}/meetings'.format(api_url), api_data)
-                        print("api_resp.body:{0}".format(api_resp.body))
-                        webex_meeting_id = api_resp.body.get('id')
-                        result = self.application.settings['db'].insert_meeting(person['id'], person.get('emails', [None])[0], meeting_id, webex_meeting_id, meeting.get('msft_id'))
-                        return_data.update({meeting_id:webex_meeting_id})
-                    except HTTPError as he:
-                        print("transfer_command HTTPError:{0}".format(he))
-                        try:
-                            jbody = json.loads(he.response.body.decode('utf-8'))
-                            print("jbody:{0}".format(jbody))
-                            try:
-                                err_msg = jbody['errors'][0]['description']
-                            except Exception as e:
-                                print('transfer_command create meeting exception:{0}'.format(e))
-                                err_msg = jbody["msg"]
-                        except Exception as ex:
-                            err_msg = "An unknown error occurred creating the meeting."
-                        err_msg += " trackingId:{0}".format(uuid4().hex)
-                        print("err_msg:{0}".format(err_msg))
-                        err_result = {'error_reason': err_msg, 'code':he.code}
+                        start_time = parser.parse(meeting['start_time'])
+                    except Exception as e:
+                        err_result = {'error_reason': 'Invalid StartTime', 'code':400}
                         return_data.update({meeting_id:err_result})
+                    if start_time != None:
+                        print(meeting['timezone'])
+                        start_time = start_time.astimezone(pytz.timezone(meeting['timezone']))
+                        print(start_time)
+                        print(type(start_time))
+                        print(dir(start_time))
+                        if meeting.get('duration'):
+                            end_time = start_time + timedelta(minutes=meeting['duration'])
+                        else:
+                            end_time = start_time + timedelta(minutes=meeting['duration_msft'])
+                        api_data = {"title":topic,
+                                    "start":start_time.isoformat(),
+                                    "end":end_time.isoformat(),
+                                    "enableAutoRecordMeeting":False,
+                                    "sendEmail":True,
+                                    "timezone":meeting['timezone']
+                                    }
+                        invitees = []
+                        if(len(meeting.get('attendees', [])) > 0):
+                            for attendee in meeting['attendees']:
+                                invitees.append({"email":attendee, "coHost":False})
+                        print(msft_user.get('email'))
+                        print(person.get('emails')[0])
+                        if(msft_user.get('email') not in [None, person.get('emails')[0]]):
+                            invitees.append({"email":msft_user.get('email'), "coHost":False})#this is in case the user's Webex email address is not the same as their outlook email addr for some reason.
+                        if len(invitees) > 0:
+                            api_data.update({"invitees":invitees})
+                        rrule = ""
+                        interval = 1
+                        if meeting.get('recurrence_msft') != None:
+                            print('msft recurrence')
+                            pattern = meeting['recurrence_msft']['pattern']
+                            ms_range = meeting['recurrence_msft']['range']
+                            interval = 'INTERVAL={0};'.format(pattern['interval'])
+                            freq = pattern['type']
+                            if freq in ["absoluteMonthly", "relativeMonthly"]:
+                                freq = "monthly"
+                            freq = 'FREQ={0};'.format(freq.upper())
+                            wkst = 'WKST={0};'.format(pattern['firstDayOfWeek'][:2].upper()) #This will usually be sunday and result in SU, which is default RFC 5545, but doesn't hurt to add it
+                            byday = ''
+                            bymonthday = ''
+                            bymonth = ''
+                            until = ''
+                            indexes = {"first":"1", "second":"2", "third":"3", "fourth":"4", "fifth":"5", "last":"-1"}
+                            if pattern.get('daysOfWeek', []) != []:
+                                for day in pattern['daysOfWeek']:
+                                    byday += '{0}{1}'.format(indexes.get(pattern['index'], ''), day[:2].upper()) #first two letters of weekday, SU, MO, TU, etc
+                                if byday != '':
+                                    byday = 'BYDAY={0};'.format(byday)
+                            elif pattern.get('dayOfMonth') not in [0, None]:
+                                bymonthday = 'BYMONTHDAY={0};'.format(pattern['dayOfMonth'])
+                            if pattern.get('month', 0) != 0:
+                                bymonth = 'BYMONTH={0};'.format(pattern['month'])
+                            if ms_range['type'] == 'endDate':
+                                rrEndDate = datetime.strptime( ms_range['endDate'], '%Y-%m-%d')
+                                rrEndDate = rrEndDate.strftime("%Y%m%d") + "T" + start_time.strftime('%H%M%SZ')
+                                until = 'UNTIL={0};'.format(rrEndDate)
+                            rrule = '{0}{1}{2}{3}{4}{5}{6}'.format(freq, interval, wkst, byday, bymonthday, bymonth, until)
+                        elif meeting.get('recurrence') != None:
+                            print('zoom recurrence')
+                            weekdays = {1:"SU",2:"MO",3:"TU",4:"WE",5:"TH",6:"FR",7:"SA"}
+                            recurrence = meeting['recurrence']
+
+                            interval = 'INTERVAL={0};'.format(recurrence['repeat_interval'])
+                            freq = ""
+                            byday = ""
+                            until = ""
+                            count = ""
+                            if recurrence.get('monthly_week') != None and recurrence.get('monthly_week_day') != None:
+                                freq = 'FREQ=MONTHLY;'
+                                byday = 'BYDAY={0}{1};'.format(recurrence.get('monthly_week'), weekdays[recurrence['monthly_week_day']])
+                            elif recurrence.get('weekly_days') != None:
+                                freq = 'FREQ=WEEKLY;'
+                                byday = 'BYDAY={0};'.format(weekdays[int(recurrence['weekly_days'])])
+                            elif len(recurrence.keys()) == 3:
+                                freq = 'FREQ=DAILY;'
+                            if recurrence.get('end_date_time') != None:
+                                rrEndDate = datetime.strptime(recurrence['end_date_time'], '%Y-%m-%dT%H:%M:%SZ')
+                                rrEndDate = rrEndDate.strftime("%Y%m%dT%H%M%SZ")
+                                until = "UNTIL={0};".format(rrEndDate)
+                            elif recurrence.get('end_times') != None:
+                                count = "COUNT={0};".format(recurrence['end_times'])
+                            rrule = '{0}{1}{2}{3}{4}'.format(freq, interval, byday, until, count)
+                        print(rrule)
+                        if rrule != "":
+                            api_data.update({"recurrence":rrule})
+
+                        print("api_data:{0}".format(api_data))
+                        try:
+                            if version == "fedramp":
+                                api_url = 'https://api-usgov.webex.com/v1'
+                            else:
+                                api_url = 'https://webexapis.com/v1'
+                            api_resp = yield Spark(person['token']).post('{0}/meetings'.format(api_url), api_data)
+                            print("api_resp.body:{0}".format(api_resp.body))
+                            webex_meeting_id = api_resp.body.get('id')
+                            result = self.application.settings['db'].insert_meeting(person['id'], person.get('emails', [None])[0], meeting_id, webex_meeting_id, meeting.get('msft_id'))
+                            return_data.update({meeting_id:webex_meeting_id})
+                        except HTTPError as he:
+                            print("transfer_command HTTPError:{0}".format(he))
+                            try:
+                                jbody = json.loads(he.response.body.decode('utf-8'))
+                                print("jbody:{0}".format(jbody))
+                                try:
+                                    err_msg = jbody['errors'][0]['description']
+                                except Exception as e:
+                                    print('transfer_command create meeting exception:{0}'.format(e))
+                                    err_msg = jbody["msg"]
+                            except Exception as ex:
+                                err_msg = "An unknown error occurred creating the meeting."
+                            err_msg += " trackingId:{0}".format(uuid4().hex)
+                            print("err_msg:{0}".format(err_msg))
+                            err_result = {'error_reason': err_msg, 'code':he.code}
+                            return_data.update({meeting_id:err_result})
+            except Exception as e:
+                traceback.print_exc()
+                err_result = {'error_reason': 'Error:{0}'.format(e), 'code':400}
+                return_data.update({meeting_id:err_result})
         if return_data != {}:
             result_object['data'] = return_data
         raise tornado.gen.Return(result_object)

@@ -16,6 +16,9 @@
       <script src="static/js/bootstrap-4.4.1.min.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+      <script src="static/js/moment.js"></script>
+      <script src="static/js/moment-timezone-with-data.js"></script>
+
       <script type="text/javascript">
         zoomToken = "{{ tokens.get('zoom_token') }}";
         msftToken = "{{ tokens.get('msft_token') }}";
@@ -29,6 +32,9 @@
         let searching = false;
         let pageVersion = null;
         let meetingTypeTitle = 'Zoom ';
+
+        var mytz = moment.tz.guess()
+        console.log(mytz);
         
       </script>
       {% block scripts %}{% end %}
