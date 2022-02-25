@@ -62,7 +62,7 @@
         <div class="step"><h3>Step X</h3><img src="static/img/check-mark.png" class="alert-image left-spacer" /></div>
         <div class="alert alert-success default-cursor" role="alert">
           <img src="static/img/webex-logo_128.png" class="alert-image" />
-          Successfully Signed in to Webex!
+          {% block base_login %}Successfully Signed in to Webex!{% end %}
           <img id="webexAvatar" src="" class="alert-image avatar-logo left-spacer right-float-img" />
         </div>
         {% block zoom_step %}
