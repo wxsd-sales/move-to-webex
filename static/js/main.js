@@ -308,7 +308,7 @@ function makeRow(id, meeting, source){
              $('<td id="webex_id_'+cell_id+'">').text(checkbox['webexId']),
              setDisplayDate($('<td id="start_time">'), meeting["start_time"]),
              $('<td id="duration_'+cell_id+'">').text(duration),
-             $('<td>').text(recurrence["string"]),
+             $('<td>').text(recurrence),
              $('<td id="attendees_'+cell_id+'" class="scroll-cell">').text(participants),
            );
   return row;
