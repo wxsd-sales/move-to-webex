@@ -14,6 +14,11 @@ Move your existing meetings from Zoom, MS Teams, or even a different Webex org t
 
 ## About The Project
 
+### Quick Note!
+
+This project was originally built to migrate only Zoom meetings to a commercial Webex org.  Since its inception, it has been updated to include moving any meetings based on a search parameter from an Outlook calendar, or even Webex commercial meetings to Webex FEDRamp.
+
+
 ### Video Demo
 
 [![MigrateToWebex Video Demo](https://img.youtube.com/vi/iws4osHV42Y/0.jpg)](https://youtu.be/iws4osHV42Y, "MigrateToWebex Video Demo")
@@ -25,7 +30,7 @@ This version follows a similar path as the old walkthrough, but does not require
 1. To use the simplified version, click the above link or navigate to https://zoomtowebex.wbx.ninja/simplified
 2. Sign in with your Webex account credentials.
 3. Sign in with your Microsoft Outlook/0365 version.
-4. Enter a search parameter to find meetings. For example, **your_org.zoom.us**, then click Search.
+4. Enter a search parameter to find meetings. For example, **zoom.us** or **your_org.zoom.us**, then click Search.
 5. Review and select meetings to transfer.
 6. Click Transfer.
 
