@@ -1,14 +1,14 @@
 # MigrateToWebex<p align="center">
-  <h2 align="center"> Zoom to Webex</h2>
+  <h2 align="center"> Migrate to Webex</h2>
 
   <p align="center">
-Move your existing meetings from Zoom to Webex in your Calendar.  This app will search your Microsoft calendar for existing Zoom meetings and make Webex meetings to fill the spots.
+Move your existing meetings from Zoom, MS Teams, or even a different Webex org to Webex in your Calendar.  This app will search your Microsoft Outlook/O365 calendar for existing meetings, based on a search term you provide. Then, you can simply select which calendar events you want to turn into Webex meetings (or Webex FEDRamp).
     <br />
-    <a href="https://zoomtowebex.wbx.ninja/"><strong>View Demo</strong></a>
+    <a href="https://zoomtowebex.wbx.ninja/simplified"><strong>View Demo</strong></a>
     ·
-    <a href="https://github.com/WXSD-Sales/ZoomToWebex/issues"><strong>Report Bug</strong></a>
+    <a href="https://github.com/WXSD-Sales/MigrateToWebex/issues"><strong>Report Bug</strong></a>
     ·
-    <a href="https://github.com/WXSD-Sales/ZoomToWebex/issues"><strong>Request Feature</strong></a>
+    <a href="https://github.com/WXSD-Sales/MigrateToWebex/issues"><strong>Request Feature</strong></a>
   </p>
 </p>
 
@@ -16,21 +16,11 @@ Move your existing meetings from Zoom to Webex in your Calendar.  This app will 
 
 ### Video Demo
 
-[![ZoomToWebex Video Demo](https://img.youtube.com/vi/iws4osHV42Y/0.jpg)](https://youtu.be/iws4osHV42Y, "ZoomToWebex Video Demo")
-
-### Walkthrough
-
-1. To use this application as it exists in production, [click here](https://zoomtowebex.wbx.ninja).
-2. Sign in with your Webex account credentials.
-3. Sign in with your Zoom account credentials.
-4. Sign in with your Microsoft Outlook/O365 credentials.
-5. Click Search for Zoom meetings.
-6. Review the found meetings, and select any you wish to transfer.
-7. Click Transfer.
+[![MigrateToWebex Video Demo](https://img.youtube.com/vi/iws4osHV42Y/0.jpg)](https://youtu.be/iws4osHV42Y, "MigrateToWebex Video Demo")
 
 ### NEW Simplified Walkthrough
 <a href="https://zoomtowebex.wbx.ninja/simplified"><strong>Simplified Demo</strong></a>  
-This version follows a similar path as the above walkthrough, but does not require authentication with Zoom!  
+This version follows a similar path as the old walkthrough, but does not require authentication with Zoom!  
 
 1. To use the simplified version, click the above link or navigate to https://zoomtowebex.wbx.ninja/simplified
 2. Sign in with your Webex account credentials.
