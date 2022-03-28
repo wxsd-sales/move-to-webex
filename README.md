@@ -16,7 +16,7 @@ Move your existing meetings from Zoom, MS Teams, or even a different Webex org t
 
 ### Quick Note!
 
-This project was originally built to migrate only Zoom meetings to a commercial Webex org, so you will see some urls that remain as a result of that.  Since its inception, it has been updated to include moving any meetings based on a search parameter from an Outlook calendar, or even Webex commercial meetings to Webex FEDRamp.
+This project was originally built to migrate only Zoom meetings to a commercial Webex org, so you will see some urls that remain as a result of that.  Since its inception, this project has been updated to include moving any meetings based on a search parameter from an Outlook calendar, or even Webex commercial meetings to Webex FEDRamp.
 
 
 ### Video Demo
