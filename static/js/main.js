@@ -76,7 +76,8 @@ function rowOnClick(meeting, meetingRow, source){
         selectedData = meetingData[myid];
       }
 
-      console.log(`selectedData:${selectedData}`);
+      console.log(`selectedData:`);
+      console.log(selectedData);
       $("#setMeetingId").text(myid);
 
       $('#setTopic').val(selectedData["topic"]).on('input', function(e){
@@ -267,7 +268,7 @@ function getNextDate(recurrenceJson, recurType, startTime){
 
 function makeRow(id, meeting, source){
   let cell_id = id;
-  if(source == "pmi"){ cell_id = meeting["msft_id"]; }
+  if(source == "pmi"){ cell_id = meeting["use_id"]; }
   let checkbox = setCheckbox(cell_id, meeting);
   let recurrence = "";
   if(meeting['recurrence_msft'] != null){
@@ -394,14 +395,15 @@ function addTransferButton(selector, text){
             $('#transferNextStepImg').fadeOut(500, fadeInSearchSuccessImg);
             let returnData = jresp['data'];
             for(let id of Object.keys(returnData)){
+              let cell_id = id;
               if(typeof(returnData[id]) == "string"){
-                $('#webex_id_'+id).text(returnData[id]);
-                $('#webex_id_'+id).removeClass('red-font');
-                $('#checkbox_html_'+id).html(completeTransferBox());
-                $('#row_'+id).off('click');
+                $('#webex_id_'+cell_id).text(returnData[id]);
+                $('#webex_id_'+cell_id).removeClass('red-font');
+                $('#checkbox_html_'+cell_id).html(completeTransferBox());
+                $('#row_'+cell_id).off('click');
               } else {//else, returnData[id] isn't a string, then it's an error object
-                $('#webex_id_'+id).text(returnData[id]["error_reason"]);
-                $('#webex_id_'+id).addClass('red-font');
+                $('#webex_id_'+cell_id).text(returnData[id]["error_reason"]);
+                $('#webex_id_'+cell_id).addClass('red-font');
               }
             }
           } else {

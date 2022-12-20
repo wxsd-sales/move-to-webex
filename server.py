@@ -274,7 +274,8 @@ class CommandHandler(BaseHandler):
                         search_found_splits = value['body']['content'].split(search_term)
                     if search_found_splits != None:
                         for attendee in value['attendees']:
-                            attendees.append(attendee['emailAddress']['address'])
+                            if re.match(r"[^@]+@[^@]+\.[^@]+", attendee['emailAddress']['address']):
+                                attendees.append(attendee['emailAddress']['address'])
                         start_msft = datetime.fromisoformat(value['start']['dateTime'][:23])
                         end_msft = datetime.fromisoformat(value['end']['dateTime'][:23])
                         duration_msft = int((end_msft - start_msft).seconds/60)
@@ -283,6 +284,7 @@ class CommandHandler(BaseHandler):
                         # based on recurrence object in main.js.  I could just get the actual next occurrence instead with graph api
                         # ... not to mention some of my recurrence/next occurence calculations are wrong in main.js (like last friday of every month)
                         my_object = {"msft_id": value['id'],
+                                     "use_id": value['id'].strip("="),
                                      "subjects":[value['subject']],
                                      "attendees": attendees,
                                      "start_msft": value['start'],
@@ -298,7 +300,7 @@ class CommandHandler(BaseHandler):
 
                         temp_ids = []
                         if version != None:
-                            temp_ids.append(value['id'])
+                            temp_ids.append(value['id'].strip("="))
                         else:
                             for split in search_found_splits[1:]:#start at index 1, because 0 will never be a meetingId
                                 parts = re.split(r'(?:[@~+=<>?&()])', split, 1)#this splits at the first special character @~+= etc.
@@ -411,6 +413,8 @@ class CommandHandler(BaseHandler):
                             indexes = {"first":"1", "second":"2", "third":"3", "fourth":"4", "fifth":"5", "last":"-1"}
                             if pattern.get('daysOfWeek', []) != []:
                                 for day in pattern['daysOfWeek']:
+                                    if byday != '':
+                                        byday += ','
                                     byday += '{0}{1}'.format(indexes.get(pattern['index'], ''), day[:2].upper()) #first two letters of weekday, SU, MO, TU, etc
                                 if byday != '':
                                     byday = 'BYDAY={0};'.format(byday)
@@ -452,12 +456,13 @@ class CommandHandler(BaseHandler):
                         if rrule != "":
                             api_data.update({"recurrence":rrule})
 
-                        print("api_data:{0}".format(api_data))
                         try:
                             if version == "fedramp":
                                 api_url = 'https://api-usgov.webex.com/v1'
+                                api_data.update({"trackingCodes":[{"name":"Telehealth","value":"NO"}]})
                             else:
                                 api_url = 'https://webexapis.com/v1'
+                            print("api_data:{0}".format(api_data))
                             api_resp = yield Spark(person['token']).post('{0}/meetings'.format(api_url), api_data)
                             print("api_resp.body:{0}".format(api_resp.body))
                             webex_meeting_id = api_resp.body.get('id')
