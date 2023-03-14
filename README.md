@@ -1,7 +1,10 @@
 <p align="center">
   <h2 align="center"> Migrate to Webex</h2>
 
+
+
   <p align="center">
+Welcome to our WXSD DEMO Repo! <!-- Keep this here --> <br>
 Move your existing meetings from Zoom, MS Teams, or even a different Webex org to Webex in your Calendar.  This app will search your Microsoft Outlook/O365 calendar for existing meetings, based on a search term you provide. Then, you can simply select which calendar events you want to turn into Webex meetings (or Webex FEDRamp).
     <br />
     <a href="https://zoomtowebex.wbx.ninja/simplified"><strong>View Demo</strong></a>
@@ -12,6 +15,10 @@ Move your existing meetings from Zoom, MS Teams, or even a different Webex org t
   </p>
 </p>
 
+<!-- Keep the following here -->  
+ *_Everything included is for demo and Proof of Concept purposes only. Your use of the site is solely at your own risk. This site may contain links to third party content, which we do not warrant, endorse, or assume liability for. These demos are for Cisco Webex usecases, but are not Official Cisco Webex Branded demos._
+ 
+ 
 ## About The Project
 
 ### Quick Note!
