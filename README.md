@@ -1,10 +1,8 @@
 <p align="center">
   <h2 align="center"> Migrate to Webex</h2>
 
-
-
   <p align="center">
-Welcome to our WXSD DEMO Repo! <!-- Keep this here --> <br>
+
 Move your existing meetings from Zoom, MS Teams, or even a different Webex org to Webex in your Calendar.  This app will search your Microsoft Outlook/O365 calendar for existing meetings, based on a search term you provide. Then, you can simply select which calendar events you want to turn into Webex meetings (or Webex FEDRamp).
     <br />
     <a href="https://zoomtowebex.wbx.ninja/simplified"><strong>View Demo</strong></a>
@@ -13,11 +11,7 @@ Move your existing meetings from Zoom, MS Teams, or even a different Webex org t
     ·
     <a href="https://github.com/WXSD-Sales/MigrateToWebex/issues"><strong>Request Feature</strong></a>
   </p>
-</p>
-
-<!-- Keep the following here -->  
- *_Everything included is for demo and Proof of Concept purposes only. Your use of the site is solely at your own risk. This site may contain links to third party content, which we do not warrant, endorse, or assume liability for. These demos are for Cisco Webex usecases, but are not Official Cisco Webex Branded demos._
- 
+</p> 
  
 ## About The Project
 
@@ -48,13 +42,13 @@ This version works exactly the same as the **simplified** version, but moves cal
 1. To use the FedRAMP version, click the above link or navigate to https://zoomtowebex.wbx.ninja/fedramp
 2. Follow the steps for the simplified version, beginning with step 2.
 
-### Built With
+## Setup
+
+### Prerequisites & Dependencies: 
 
 - Python3 (v3.8.1)  
 
 <!-- GETTING STARTED -->
-
-## Installation
 
 If you simply want to use this application, you only need to follow the Walkthrough.<br/>
 <br/>
@@ -123,11 +117,13 @@ MY_MONGO_DB=zoomdb
 This can remain unchanged.  Remember to update the DB in the ```MY_MONGO_URL``` string to match this value.
 
 
-<!-- LICENSE -->
-
 ## License
+All contents are licensed under the MIT license. Please see [license](LICENSE) for details.
 
-Distributed under the MIT License. 
+
+## Disclaimer
+<!-- Keep the following here -->  
+ Everything included is for demo and Proof of Concept purposes only. Use of the site is solely at your own risk. This site may contain links to third party content, which we do not warrant, endorse, or assume liability for. These demos are for Cisco Webex usecases, but are not Official Cisco Webex Branded demos.
 
 <!-- CONTACT -->
 
